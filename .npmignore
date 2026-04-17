@@ -1,0 +1,11 @@
+src
+node_modules
+.git
+.github
+.vitest-cache
+coverage
+tsconfig.json
+tsup.config.ts
+*.test.ts
+*.test.*
+.eslintrc*
