@@ -53,7 +53,13 @@ console.log(link.shortlink) // open this in the user's browser
 The library is written in TypeScript and ships with type definitions. All request and response payloads are strictly typed:
 
 ```ts
-import type { Link, MerchantDetail, WebhookPayload } from '@laguna-team/whitelabel-sdk'
+import type {
+  CatalogResponse,
+  MerchantDetail,
+  CreateLinkParams,
+  CreateLinkResult,
+  WebhookPayload,
+} from '@laguna-team/whitelabel-sdk'
 ```
 
 ## Resources
@@ -156,15 +162,7 @@ app.post(
 
 > **Important**: verify against the **raw** request body. `JSON.parse(...)` then `JSON.stringify(...)` produces different bytes (key order, whitespace) and the signature will fail.
 
-### Multi-tenant receivers
-
-If a single endpoint receives webhooks for multiple Laguna partners (each with their own `webhook_secret`), use the `X-Laguna-Partner-Id` header to look up the right secret before verifying:
-
-```ts
-const partnerId = req.headers['x-laguna-partner-id'] as string
-const secret = await db.getPartnerWebhookSecret(partnerId)
-const event = parseWebhook(req.body.toString('utf8'), signature, secret)
-```
+If you need a boolean check without parsing, use `verifyWebhookSignature(rawBody, signatureHeader, secret)` — same primitive, returns `true | false` instead of the parsed payload.
 
 ## Handling errors
 
@@ -227,15 +225,18 @@ await laguna.links.create(
 
 ### Timeouts
 
-Set `timeoutMs` on the client (default 30s) or per-call:
+Set `timeoutMs` on the client (default 30s):
 
 ```ts
-await laguna.merchants.list({ geo: 'SG' }, { timeoutMs: 5_000 })
+const laguna = new LagunaClient({
+  apiKey: process.env.LAGUNA_API_KEY!,
+  timeoutMs: 5_000,
+})
 ```
 
 ## Versioning
 
-This package follows [semver](https://semver.org/). Breaking changes are released only in major versions and called out in the [CHANGELOG](./CHANGELOG.md).
+This package follows [semver](https://semver.org/). Breaking changes are released only in major versions and noted in the [GitHub releases](https://github.com/Laguna-Team/laguna-sdk/releases).
 
 The SDK pins the API version it targets internally — upgrading the SDK is the supported way to access new endpoints. The base URL stays the same across versions.
 

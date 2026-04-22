@@ -1,6 +1,6 @@
 {
   "name": "@laguna-team/whitelabel-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official TypeScript SDK for the Laguna Whitelabel API — embed cashback in your app, mint affiliate links, and verify webhooks.",
   "license": "MIT",
   "author": "Laguna <team@laguna.network>",
