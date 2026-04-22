@@ -110,7 +110,7 @@ export class LagunaClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       Accept: 'application/json',
-      'User-Agent': '@laguna/whitelabel-sdk',
+      'User-Agent': '@laguna-team/whitelabel-sdk',
     }
     if (options.body !== undefined) headers['Content-Type'] = 'application/json'
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey

@@ -1,6 +1,6 @@
 # Laguna Whitelabel TypeScript SDK
 
-[![npm version](https://img.shields.io/npm/v/@laguna/whitelabel-sdk.svg)](https://www.npmjs.com/package/@laguna/whitelabel-sdk)
+[![npm version](https://img.shields.io/npm/v/@laguna-team/whitelabel-sdk.svg)](https://www.npmjs.com/package/@laguna-team/whitelabel-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 The Laguna Whitelabel SDK provides convenient access to the Laguna Whitelabel API from applications written in server-side TypeScript or JavaScript. Embed crypto cashback into your app: discover affiliate merchants, mint tracked links, verify webhooks, and disburse USDC settlements.
@@ -17,15 +17,15 @@ See the [API reference](https://docs.laguna.network/whitelabel) for complete end
 ## Installation
 
 ```bash
-npm install @laguna/whitelabel-sdk
+npm install @laguna-team/whitelabel-sdk
 ```
 
 ```bash
-pnpm add @laguna/whitelabel-sdk
+pnpm add @laguna-team/whitelabel-sdk
 ```
 
 ```bash
-yarn add @laguna/whitelabel-sdk
+yarn add @laguna-team/whitelabel-sdk
 ```
 
 ## Usage
@@ -33,7 +33,7 @@ yarn add @laguna/whitelabel-sdk
 The library needs to be configured with your account's API key. Pass it to `LagunaClient` on instantiation:
 
 ```ts
-import { LagunaClient } from '@laguna/whitelabel-sdk'
+import { LagunaClient } from '@laguna-team/whitelabel-sdk'
 
 const laguna = new LagunaClient({
   apiKey: process.env.LAGUNA_API_KEY!,
@@ -53,7 +53,7 @@ console.log(link.shortlink) // open this in the user's browser
 The library is written in TypeScript and ships with type definitions. All request and response payloads are strictly typed:
 
 ```ts
-import type { Link, MerchantDetail, WebhookPayload } from '@laguna/whitelabel-sdk'
+import type { Link, MerchantDetail, WebhookPayload } from '@laguna-team/whitelabel-sdk'
 ```
 
 ## Resources
@@ -128,7 +128,7 @@ Laguna sends an HTTP POST to your registered webhook URL whenever a conversion i
 
 ```ts
 import express from 'express'
-import { parseWebhook, LagunaWebhookSignatureError } from '@laguna/whitelabel-sdk'
+import { parseWebhook, LagunaWebhookSignatureError } from '@laguna-team/whitelabel-sdk'
 
 app.post(
   '/webhooks/laguna',
@@ -179,7 +179,7 @@ import {
   LagunaRateLimitError,   // 429 — exposes `retryAfterSeconds`
   LagunaServerError,      // 5xx — automatically retried up to `maxRetries`
   LagunaNetworkError,     // network failure or timeout
-} from '@laguna/whitelabel-sdk'
+} from '@laguna-team/whitelabel-sdk'
 
 try {
   await laguna.links.create({ merchant_id: 'unknown', partner_user_id: 'x' })

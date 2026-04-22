@@ -1,8 +1,8 @@
 /**
- * @laguna/whitelabel-sdk
+ * @laguna-team/whitelabel-sdk
  *
  * Official TypeScript SDK for the Laguna Whitelabel API.
- * https://github.com/Laguna-10xlab/laguna-whitelabel-sdk
+ * https://github.com/Laguna-Team/laguna-sdk
  */
 
 export { LagunaClient } from './client'
