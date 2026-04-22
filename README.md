@@ -236,7 +236,7 @@ const laguna = new LagunaClient({
 
 ## Versioning
 
-This package follows [semver](https://semver.org/). Breaking changes are released only in major versions and noted in the [GitHub releases](https://github.com/Laguna-Team/laguna-sdk/releases).
+This package follows [semver](https://semver.org/). Breaking changes are released only in major versions and noted in the [CHANGELOG](./CHANGELOG.md).
 
 The SDK pins the API version it targets internally — upgrading the SDK is the supported way to access new endpoints. The base URL stays the same across versions.
 
