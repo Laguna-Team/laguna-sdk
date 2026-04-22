@@ -19,9 +19,23 @@ import {
 import { verifyWebhookSignature } from './webhooks'
 
 export interface LagunaClientConfig {
-  /** Your Bearer token (lg_live_* or lg_test_*). Required. */
+  /**
+   * Your Bearer token. Required.
+   *
+   * The prefix determines which environment the SDK targets:
+   * - `lg_live_*` → production (https://api.laguna.network)
+   * - `lg_test_*` → staging   (https://api-stg.laguna.network)
+   *
+   * Both authenticate against the same SDK surface; the server enforces
+   * sandbox-vs-live data behavior off the prefix.
+   */
   apiKey: string
-  /** Override the API base URL. Defaults to https://api.laguna.network */
+  /**
+   * Escape hatch to override the resolved base URL. You normally do not
+   * need this — the SDK picks the right environment from your apiKey
+   * prefix automatically. Use this only if Laguna support tells you to
+   * (e.g. a regional endpoint or an internal-test setup).
+   */
   baseUrl?: string
   /** Per-request timeout in milliseconds. Default 30000 (30s). */
   timeoutMs?: number
@@ -31,9 +45,25 @@ export interface LagunaClientConfig {
   fetch?: typeof globalThis.fetch
 }
 
-const DEFAULT_BASE_URL = 'https://api.laguna.network'
+const PROD_URL = 'https://api.laguna.network'
+const STAGING_URL = 'https://api-stg.laguna.network'
 const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_RETRIES = 2
+
+/**
+ * Pick the base URL from the API key prefix.
+ *  - lg_live_* → production
+ *  - lg_test_* → staging
+ *  - anything else → throws (would silently misroute otherwise)
+ */
+function resolveBaseUrl(apiKey: string): string {
+  if (apiKey.startsWith('lg_live_')) return PROD_URL
+  if (apiKey.startsWith('lg_test_')) return STAGING_URL
+  throw new Error(
+    'LagunaClient: apiKey must start with "lg_live_" (production) or "lg_test_" (staging). ' +
+      'Get one from team@laguna.network.',
+  )
+}
 
 /**
  * Main client for the Laguna Whitelabel API.
@@ -83,7 +113,7 @@ export class LagunaClient {
   constructor(config: LagunaClientConfig & { webhookSecret?: string }) {
     if (!config.apiKey) throw new Error('LagunaClient: apiKey is required')
     this.apiKey = config.apiKey
-    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '')
+    this.baseUrl = (config.baseUrl ?? resolveBaseUrl(config.apiKey)).replace(/\/$/, '')
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES
     this.fetchImpl = config.fetch ?? globalThis.fetch

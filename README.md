@@ -206,21 +206,28 @@ try {
 
 ```ts
 const laguna = new LagunaClient({
-  apiKey: 'lg_live_...',                   // required
-  webhookSecret: '...',                    // optional — used by webhook helpers
-  baseUrl: 'https://api.laguna.network',   // default
-  timeoutMs: 30_000,                       // per-request timeout in ms
-  maxRetries: 2,                           // for transient 5xx + network errors
-  fetch: customFetch,                      // override (testing, polyfills)
+  apiKey: 'lg_live_...',     // required — prefix picks the env (see below)
+  webhookSecret: '...',      // optional — used by webhook helpers
+  timeoutMs: 30_000,         // per-request timeout in ms
+  maxRetries: 2,             // for transient 5xx + network errors
+  fetch: customFetch,        // override (testing, polyfills)
 })
 ```
 
 ### Sandbox vs production
 
-- **Sandbox keys** (`lg_test_*`) — isolated test data, dry-run disbursements
-- **Live keys** (`lg_live_*`) — production data, real on-chain disbursements
+The SDK targets the right environment automatically based on your API key prefix:
 
-Both authenticate against `https://api.laguna.network`. The key prefix tells the server which dataset to use.
+| Prefix | Environment | Base URL |
+|---|---|---|
+| `lg_live_*` | Production | `https://api.laguna.network` |
+| `lg_test_*` | Staging | `https://api-stg.laguna.network` |
+
+You don't need to specify a base URL — just drop in your key. Switching from sandbox to production is a one-character change in your env config (`lg_test_...` → `lg_live_...`).
+
+Sandbox returns isolated test data and dry-runs disbursements. Production hits real partner accounts and settles on-chain. Both share the same SDK surface and webhook payload shape.
+
+If Laguna support gives you a non-standard endpoint (regional, joint development, etc.), you can override with the `baseUrl` config option.
 
 ### Retries
 

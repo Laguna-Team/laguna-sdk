@@ -8,20 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.1.1] — 2026-04-22
 
+### Fixed
+
+- **Critical**: the default `baseUrl` was hard-coded to `https://api.laguna.network`, which did not exist as a real endpoint at the time of `0.1.0`. Any `0.1.0` install would fail with a DNS error on the first request. The default URL is now resolved from the API key prefix (see Changed below).
+
+### Changed
+
+- The SDK now picks the base URL automatically from the API key prefix:
+  - `lg_live_*` → `https://api.laguna.network` (production)
+  - `lg_test_*` → `https://api-stg.laguna.network` (staging)
+- Both endpoints are now live as CloudFront-fronted aliases of the existing prod / stg distributions.
+- The `baseUrl` config option remains as an escape hatch for non-standard endpoints (regional, internal-test). You normally do not need it.
+- An invalid API key prefix now throws a clear error at construction time instead of silently misrouting.
+
 ### Added
 
 - "Getting an API key" section in the README explaining the assisted onboarding path (email `team@laguna.network`) until self-serve sign-up exists.
 - This `CHANGELOG.md` file, shipped in the npm tarball.
 
-### Changed
+### Documentation
 
-- Documentation cleanup: README now focuses purely on partner-facing usage; internal infra notes removed.
-- Fixed typed import example in README to reference real exported types (`CreateLinkResult` instead of the non-existent `Link`).
+- README now focuses purely on partner-facing usage; internal infra notes removed.
+- Fixed typed import example to reference real exported types (`CreateLinkResult` instead of the non-existent `Link`).
 - Removed an invalid per-call timeout example for resource methods. Timeouts are configured on the `LagunaClient` constructor only.
-
-### No code changes
-
-This is a docs-only release. SDK behaviour is identical to `0.1.0`.
 
 ## [0.1.0] — 2026-04-22
 
