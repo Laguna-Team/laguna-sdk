@@ -12,7 +12,17 @@ See the [API reference](https://docs.laguna.network/whitelabel) for complete end
 ## Requirements
 
 - Node.js 18+ (uses native `fetch` and `crypto.subtle`)
-- A Laguna API key (sandbox `lg_test_*` or live `lg_live_*`) from your Laguna account manager
+- A Laguna API key (sandbox `lg_test_*` or live `lg_live_*`)
+
+## Getting an API key
+
+Self-serve sign-up is coming soon. For now, onboarding is assisted — email **team@laguna.network** with:
+
+- Your company name and a short description of how you plan to use Laguna
+- The merchants / categories you're most interested in
+- The country / region your users are in
+
+We'll set up your partner record, issue a sandbox key (`lg_test_*`) for integration, and walk you through the live key (`lg_live_*`) once you're ready.
 
 ## Installation
 
