@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.1.1] — 2026-04-22
 
+### Added
+
+- "Getting an API key" section in the README explaining the assisted onboarding path (email `team@laguna.network`) until self-serve sign-up exists.
+- This `CHANGELOG.md` file, shipped in the npm tarball.
+
 ### Changed
 
 - Documentation cleanup: README now focuses purely on partner-facing usage; internal infra notes removed.
