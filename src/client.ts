@@ -18,6 +18,15 @@ import {
 } from './types'
 import { verifyWebhookSignature } from './webhooks'
 
+/**
+ * SDK version. Kept in sync with package.json manually because importing
+ * package.json at runtime makes bundlers unhappy (json imports require
+ * `--resolveJsonModule` + break ESM/CJS duality). Bump this on every
+ * release; tests verify it matches package.json.
+ */
+export const SDK_VERSION = '0.1.2'
+export const SDK_NAME = '@laguna-team/whitelabel-sdk'
+
 export interface LagunaClientConfig {
   /**
    * Your Bearer token. Required.
@@ -137,10 +146,15 @@ export class LagunaClient {
   /** Internal: low-level request with retry + error mapping. */
   async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, options: { query?: Record<string, string | number | undefined>; body?: unknown; idempotencyKey?: string } = {}): Promise<T> {
     const url = this.buildUrl(path, options.query)
+    // UA convention: "<name>/<version> (<platform>)" — matches the informal
+    // npm ecosystem convention and lets the server side parse sdk + version
+    // from a single header for usage analytics. Falls back gracefully if
+    // process.version isn't available (browser / edge runtime).
+    const platform = typeof process !== 'undefined' && process.versions?.node ? `node/${process.versions.node}` : 'unknown'
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       Accept: 'application/json',
-      'User-Agent': '@laguna-team/whitelabel-sdk',
+      'User-Agent': `${SDK_NAME}/${SDK_VERSION} (${platform})`,
     }
     if (options.body !== undefined) headers['Content-Type'] = 'application/json'
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey

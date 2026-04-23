@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-04-23
+
+### Changed
+
+- `User-Agent` header now includes the SDK version and Node runtime, e.g. `@laguna-team/whitelabel-sdk/0.1.2 (node/20.11.1)`. Previous versions sent just `@laguna-team/whitelabel-sdk`. This enables per-partner SDK version adoption analytics on the Laguna admin side without requiring any changes to your integration.
+- Exported `SDK_NAME` and `SDK_VERSION` constants from the package entry point for callers that want to log them.
+
 ## [0.1.1] — 2026-04-22
 
 ### Fixed

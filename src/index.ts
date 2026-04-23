@@ -5,7 +5,7 @@
  * https://github.com/Laguna-Team/laguna-sdk
  */
 
-export { LagunaClient } from './client'
+export { LagunaClient, SDK_NAME, SDK_VERSION } from './client'
 export type { LagunaClientConfig } from './client'
 
 export {
