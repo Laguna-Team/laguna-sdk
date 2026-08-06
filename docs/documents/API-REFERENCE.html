@@ -1,0 +1,417 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>API-REFERENCE | Laguna Whitelabel SDK - v0.1.2</title><meta name="description" content="Documentation for Laguna Whitelabel SDK"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="https://github.com/Laguna-Team/laguna-sdk" class="title">Laguna Whitelabel SDK - v0.1.2</a>
+<div id="tsd-toolbar-links"><a href="https://github.com/Laguna-Team/laguna-sdk">GitHub</a><a href="https://www.npmjs.com/package/@laguna-team/whitelabel-sdk">npm</a></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="" aria-current="page">API-REFERENCE</a></li></ul></div>
+<div class="tsd-panel tsd-typography"><h1 id="laguna-whitelabel-api-reference-non-sdk" class="tsd-anchor-link">Laguna Whitelabel API Reference (non-SDK)<a href="#laguna-whitelabel-api-reference-non-sdk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p>Raw REST reference for the Laguna Whitelabel API, for integrators not using
+<code>@laguna-team/whitelabel-sdk</code> (other languages, direct HTTP). Generated from
+the <code>laguna-agent-backend</code> and <code>backend_worker</code> source as of <strong>2026-08-06</strong>.
+If you're on Node/TypeScript, prefer the <a href="../">SDK</a> — this document
+describes the wire protocol it wraps.</p>
+<blockquote>
+<p>This file documents behavior observed in code, not a hand-maintained spec.
+Endpoints under <strong>Internal</strong> / <strong>Admin</strong> are not partner-facing and are
+listed only for completeness.</p>
+</blockquote>
+<h2 id="base-url" class="tsd-anchor-link">Base URL<a href="#base-url" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<table>
+<thead>
+<tr>
+<th>API key prefix</th>
+<th>Environment</th>
+<th>Base URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lg_live_*</code></td>
+<td>Production</td>
+<td><code>https://api.laguna.network</code></td>
+</tr>
+<tr>
+<td><code>lg_test_*</code></td>
+<td>Staging (sandbox)</td>
+<td><code>https://api-stg.laguna.network</code></td>
+</tr>
+</tbody>
+</table>
+<p>All partner endpoints below are mounted under <code>/api/v1/...</code> (global <code>api</code>
+prefix + controller <code>v1</code> prefix).</p>
+<h2 id="authentication" class="tsd-anchor-link">Authentication<a href="#authentication" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Two distinct auth modes share the same <code>Authorization: Bearer &lt;token&gt;</code>
+header and the same route table. The server picks the mode by prefix-sniffing
+the token.</p>
+<h3 id="1-partner-api-key-server-to-server" class="tsd-anchor-link">1. Partner API key (server-to-server)<a href="#1-partner-api-key-server-to-server" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<pre><code><span class="hl-11">Authorization</span><span class="hl-1">: </span><span class="hl-4">Bearer</span><span class="hl-1"> </span><span class="hl-4">lg_live_xxxxxxxx</span><br/><span class="hl-11">Authorization</span><span class="hl-1">: </span><span class="hl-4">Bearer</span><span class="hl-1"> </span><span class="hl-4">lg_test_xxxxxxxx</span>
+</code><button>Copy</button></pre>
+
+<ul>
+<li><code>lg_test_*</code> keys operate in sandbox mode: conversions/links are flagged
+<code>isSandbox</code>, never touch live balances, and unlock <code>POST /v1/test/conversions</code>.</li>
+<li>Keys are SHA-256 hashed server-side and cached for 5 minutes — a revoked
+key can remain accepted for up to 5 minutes after revocation.</li>
+<li>Invalid prefix → <code>401 INVALID_API_KEY_FORMAT</code>. Unknown/revoked key →
+<code>401 INVALID_API_KEY</code>. Suspended partner → <code>401 PARTNER_SUSPENDED</code>.</li>
+</ul>
+<h3 id="2-jwt-session-consumer-whitelabel-wallet-ui" class="tsd-anchor-link">2. JWT session (consumer / whitelabel wallet UI)<a href="#2-jwt-session-consumer-whitelabel-wallet-ui" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Used by Laguna-built whitelabel front-ends (e.g. MiniPay), not by
+server-side partner integrations. A session token is minted via:</p>
+<pre><code><span class="hl-6">POST</span><span class="hl-1"> /</span><span class="hl-4">api</span><span class="hl-1">/</span><span class="hl-4">v1</span><span class="hl-1">/</span><span class="hl-4">minipay</span><span class="hl-1">/</span><span class="hl-4">launch</span><span class="hl-1">-</span><span class="hl-4">session</span>
+</code><button>Copy</button></pre>
+
+<p>Body: <code>{ partner_code?, uid?, address?, geo?, isBypass? }</code> (one of
+<code>partner_code</code> or the <code>x-provider</code> header identifies the partner).
+Returns <code>{ data: { access_tokens, refresh_token, authLevel, scopes, partnerCode, userId } }</code>.</p>
+<p>&quot;Limited&quot; JWT sessions are restricted to an explicit per-route scope list —
+each scope only unlocks the routes below, enforced server-side regardless of
+what the token claims:</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Unlocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>merchant:read</code></td>
+<td><code>GET /v1/catalog</code>, <code>/v1/merchants</code>, <code>/v1/merchants/:id</code>, <code>/v1/categories</code></td>
+</tr>
+<tr>
+<td><code>link-refer:create</code></td>
+<td><code>POST /v1/links</code></td>
+</tr>
+<tr>
+<td><code>wallet:read</code></td>
+<td><code>GET /v1/me/conversions</code>, <code>/v1/me/withdrawals</code>, <code>/v1/me/withdrawals/:id</code></td>
+</tr>
+<tr>
+<td><code>wallet:withdraw</code></td>
+<td><code>POST /v1/me/withdrawals</code></td>
+</tr>
+</tbody>
+</table>
+<p>For <code>POST /v1/links</code> under JWT auth, <code>partner_user_id</code> is <em>derived</em> from the
+token's wallet address — do not (and cannot) pass it in the body.</p>
+<p>Public partner config lookup (branding, no auth): <code>GET /partner-config</code>
+(<code>x-provider</code> header or <code>?partner_code=</code>, or infers from a JWT if present).</p>
+<hr>
+<h2 id="partner-api-key-endpoints" class="tsd-anchor-link">Partner API key endpoints<a href="#partner-api-key-endpoints" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>All require <code>Authorization: Bearer lg_live_*|lg_test_*</code>. Endpoints marked
+<strong>subscribed</strong> additionally require the partner to be <strong>approved</strong> for the
+merchant (<code>403 MERCHANT_NOT_SUBSCRIBED</code> otherwise) — see <a href="#subscriptions">Subscriptions</a>.</p>
+<h3 id="catalog" class="tsd-anchor-link">Catalog<a href="#catalog" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h4 id="_" class="tsd-anchor-link"><code>GET /v1/catalog</code><a href="#_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Full merchant catalog, <strong>not</strong> scope-filtered — use this at integration time
+to decide what to subscribe to.</p>
+<p>Query: <code>geo?</code>, <code>category?</code>, <code>limit?</code> (default 50, max 200)</p>
+<pre><code class="jsonc"><span class="hl-7">// 200</span><br/><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;merchants&quot;</span><span class="hl-1">: [</span><br/><span class="hl-1">    {</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;logo_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://...&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;supported_geos&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-2">&quot;MY&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;headline_rate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-7">// null = never requested; otherwise &#39;pending&#39; | &#39;approved&#39; | &#39;rejected&#39; | &#39;revoked&#39;</span><br/><span class="hl-1">      </span><span class="hl-12">&quot;subscription_status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;approved&quot;</span><br/><span class="hl-1">    }</span><br/><span class="hl-1">  ],</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;total&quot;</span><span class="hl-1">: </span><span class="hl-9">1</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<h4 id="_-1" class="tsd-anchor-link"><code>GET /v1/categories</code><a href="#_-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Not in the SDK. Top-level category browse, no scope filter.</p>
+<p>Query: <code>geo?</code></p>
+<pre><code class="jsonc"><span class="hl-7">// 200</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;categories&quot;</span><span class="hl-1">: [</span><br/><span class="hl-1">  { </span><span class="hl-12">&quot;name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchantCount&quot;</span><span class="hl-1">: </span><span class="hl-9">42</span><span class="hl-1">, </span><span class="hl-12">&quot;topCashbackRate&quot;</span><span class="hl-1">: </span><span class="hl-9">8.0</span><span class="hl-1">, </span><span class="hl-12">&quot;exampleMerchants&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-2">&quot;lazada&quot;</span><span class="hl-1">] }</span><br/><span class="hl-1">]}</span>
+</code><button type="button">Copy</button></pre>
+
+<h4 id="-rate-refresh-subscribed-only-implicit" class="tsd-anchor-link"><code>GET /v1/merchants</code> — rate refresh (<strong>subscribed only</strong>, implicit)<a href="#-rate-refresh-subscribed-only-implicit" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Returns full rate detail for every <strong>approved</strong> merchant on this key. No
+<code>?ids=</code> — the server already knows your scope. Empty scope → <code>{ merchants: [], total: 0, cache_ttl }</code>.</p>
+<p>Query: <code>geo?</code>, <code>keyword?</code> (server-side search intersected with your approved set)</p>
+<p>Response: <code>{ merchants: MerchantDetail[], total, cache_ttl }</code> — cache for
+<code>cache_ttl</code> seconds (currently 3600) client-side; don't poll per user request.</p>
+<h4 id="-single-merchant-subscribed" class="tsd-anchor-link"><code>GET /v1/merchants/:id</code> — single merchant (<strong>subscribed</strong>)<a href="#-single-merchant-subscribed" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Query: <code>geo?</code>. <code>403 MERCHANT_NOT_SUBSCRIBED</code> if not approved.</p>
+<p><strong><code>MerchantDetail</code> shape (full — the SDK's type only covers the first block):</strong></p>
+<pre><code class="jsonc"><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;logo_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;best_rate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;rate_note&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Up to 4.5% depending on category&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;category_rates&quot;</span><span class="hl-1">: [{ </span><span class="hl-12">&quot;sub_category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;rate&quot;</span><span class="hl-1">: </span><span class="hl-9">3.0</span><span class="hl-1"> }],</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;cookie_days&quot;</span><span class="hl-1">: </span><span class="hl-9">7</span><span class="hl-1">, </span><span class="hl-12">&quot;payout_days&quot;</span><span class="hl-1">: </span><span class="hl-9">45</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;supported_geos&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-2">&quot;MY&quot;</span><span class="hl-1">], </span><span class="hl-12">&quot;cache_ttl&quot;</span><span class="hl-1">: </span><span class="hl-9">3600</span><span class="hl-1">, </span><span class="hl-12">&quot;available&quot;</span><span class="hl-1">: </span><span class="hl-5">true</span><span class="hl-1">,</span><br/><br/><span class="hl-1">  </span><span class="hl-7">// --- i18n (added 2026-07-14/15, not in SDK types) ---</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;i18n&quot;</span><span class="hl-1">: {</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;category&quot;</span><span class="hl-1">: { </span><span class="hl-12">&quot;en&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;vi&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Mua sắm&quot;</span><span class="hl-1"> },</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;category_rates&quot;</span><span class="hl-1">: [{ </span><span class="hl-12">&quot;sub_category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;translations&quot;</span><span class="hl-1">: { </span><span class="hl-12">&quot;en&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1"> } }]</span><br/><span class="hl-1">  },</span><br/><br/><span class="hl-1">  </span><span class="hl-7">// --- additive fields for compatibility with the main backend&#39;s merchant-list shape ---</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;description&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://shopee.sg&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;imgUrl&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;slugId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;canonicalMerchantId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;highestRate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;maxCashbackRate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;rateCashbackMax&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;rateCashbackMin&quot;</span><span class="hl-1">: </span><span class="hl-9">1.0</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;dayEndText&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;isUpsize&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">, </span><span class="hl-12">&quot;infoTier&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;configTierToken&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;iconTokenMax&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;iconTokenMin&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;isDisplayTier&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">, </span><span class="hl-12">&quot;cashbackHighestIcon&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;dos&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;donts&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;trackingTimeLine&quot;</span><span class="hl-1">: [], </span><span class="hl-12">&quot;termAndCondition&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;trackTime&quot;</span><span class="hl-1">: </span><span class="hl-9">7</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawableTime&quot;</span><span class="hl-1">: </span><span class="hl-9">45</span><span class="hl-1">, </span><span class="hl-12">&quot;isClickId&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;tags&quot;</span><span class="hl-1">: [], </span><span class="hl-12">&quot;thirdPartyType&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;position&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;backgroundColor&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Treat everything after the first block as <strong>unstable/undocumented
+compatibility fields</strong> — they mirror the internal admin merchant-list shape
+and may change without notice. Rely only on the first block for a public
+contract.</p>
+<h3 id="subscriptions" class="tsd-anchor-link">Subscriptions<a href="#subscriptions" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Partners must be <strong>approved</strong>-subscribed before minting links or seeing
+rates for a merchant.</p>
+<ul>
+<li><code>GET /v1/subscriptions?status=pending|approved|rejected|revoked</code> →
+<code>{ subscriptions: Subscription[], total }</code></li>
+<li><code>POST /v1/subscriptions</code> body <code>{ merchant_ids: string[] }</code> → creates
+<code>pending</code> requests (admin review) →
+<code>{ created: [{ id, merchant_id, status, requested_at }], total, message }</code></li>
+<li><code>DELETE /v1/subscriptions/:merchant_id</code> — self-serve, immediate →
+<code>{ merchant_id, status: 'revoked', message }</code></li>
+</ul>
+<h3 id="links" class="tsd-anchor-link">Links<a href="#links" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h4 id="-mint-a-tracked-shortlink-subscribed" class="tsd-anchor-link"><code>POST /v1/links</code> — mint a tracked shortlink (<strong>subscribed</strong>)<a href="#-mint-a-tracked-shortlink-subscribed" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<pre><code class="jsonc"><span class="hl-7">// request — geo is REQUIRED (server 400s without it; the SDK&#39;s TS type</span><br/><span class="hl-7">// currently marks it optional — see audit notes)</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;geo&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;target_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://shopee.sg/product/abc&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<pre><code class="jsonc"><span class="hl-7">// 201</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;shortlink&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://go.laguna.network/r/AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;shortcode&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Errors: <code>400</code> missing <code>merchant_id</code>/<code>geo</code> or no route for that geo; <code>403</code>
+<code>partner_user_id</code> missing (API-key mode) or merchant not subscribed.
+Idempotency-Key header supported. Rate limit: <strong>100,000 links/partner/day</strong>
+→ <code>429</code> (see <a href="#rate-limits">Rate limits</a>).</p>
+<h4 id="-not-in-the-sdk" class="tsd-anchor-link"><code>GET /v1/links</code> — not in the SDK<a href="#-not-in-the-sdk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>List the partner's minted links with click/conversion counts.</p>
+<p>Query: <code>partner_user_id?</code>, <code>limit?</code>, <code>offset?</code></p>
+<pre><code class="jsonc"><span class="hl-1">{ </span><span class="hl-12">&quot;links&quot;</span><span class="hl-1">: [</span><br/><span class="hl-1">  { </span><span class="hl-12">&quot;id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;shortcode&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchant_name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;active&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;click_count&quot;</span><span class="hl-1">: </span><span class="hl-9">3</span><span class="hl-1">, </span><span class="hl-12">&quot;conversion_count&quot;</span><span class="hl-1">: </span><span class="hl-9">1</span><span class="hl-1">, </span><span class="hl-12">&quot;created_at&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;2026-08-01T00:00:00.000Z&quot;</span><span class="hl-1"> }</span><br/><span class="hl-1">], </span><span class="hl-12">&quot;total&quot;</span><span class="hl-1">: </span><span class="hl-9">1</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="sandbox-test-mode-not-in-the-sdk" class="tsd-anchor-link">Sandbox test mode — <code>POST /v1/test/conversions</code> (not in the SDK)<a href="#sandbox-test-mode-not-in-the-sdk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p><strong>Sandbox key only</strong> (<code>lg_test_*</code>; a live key gets <code>403</code>). Fabricates a
+confirmed conversion on one of your own already-clicked links and delivers
+real signed <code>conversion.pending</code> → <code>conversion.confirmed</code> webhooks, so you
+can exercise your full integration without a real purchase. Flagged
+<code>isSimulated</code> downstream — never touches live balances or triggers payout.</p>
+<p>Flow: mint link (sandbox key) → open <code>/r/&lt;shortcode&gt;</code> once (registers a
+click) → <code>POST /v1/test/conversions</code>.</p>
+<pre><code class="jsonc"><span class="hl-7">// request</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;shortcode&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;order_value&quot;</span><span class="hl-1">: </span><span class="hl-9">100</span><span class="hl-1">, </span><span class="hl-12">&quot;gross_rate_pct&quot;</span><span class="hl-1">: </span><span class="hl-9">5</span><span class="hl-1"> } </span><span class="hl-7">// or link_id instead of shortcode</span>
+</code><button type="button">Copy</button></pre>
+
+<pre><code class="jsonc"><span class="hl-7">// response</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;ok&quot;</span><span class="hl-1">: </span><span class="hl-5">true</span><span class="hl-1">, </span><span class="hl-12">&quot;conversion_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;conversion_status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;confirmed&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;net_commission&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;partner_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;shortcode&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC123xy&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;network_order_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;webhook_event_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;webhook_status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;delivered&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="disbursements-model-1-only" class="tsd-anchor-link">Disbursements — Model 1 only<a href="#disbursements-model-1-only" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h4 id="_-2" class="tsd-anchor-link"><code>POST /v1/disburse</code><a href="#_-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Idempotent on <code>transaction_id</code> (must match a <strong>confirmed</strong> conversion's
+<code>network_order_id</code> for this partner). <code>403 WRONG_PAYOUT_MODE</code> if the partner
+isn't on <code>model_1_user_wallet</code>.</p>
+<pre><code class="jsonc"><span class="hl-7">// request</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;transaction_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;order_xyz&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;user_wallet_address&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<pre><code class="jsonc"><span class="hl-7">// 200/201</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;disbursement_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;processing&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;amount_usdc&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;destination_wallet&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawable_code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC12345&quot;</span><span class="hl-1">, </span><span class="hl-7">// ← not in SDK&#39;s DisburseResult type</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Disbursement queued. Poll GET /v1/disbursements/:id for status.&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Repeat calls with the same <code>transaction_id</code> after completion →
+<code>409-ish</code> domain error <code>DISBURSEMENT_ALREADY_PROCESSED</code>.</p>
+<h4 id="_-3" class="tsd-anchor-link"><code>GET /v1/disbursements/:id</code><a href="#_-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<pre><code class="jsonc"><span class="hl-1">{ </span><span class="hl-12">&quot;disbursement_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;transaction_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;order_xyz&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawable_code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC12345&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;completed&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;amount_usdc&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">, </span><span class="hl-12">&quot;destination_wallet&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;chain&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;base&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;tx_hash&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;created_at&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="earnings-withdrawals--models-23" class="tsd-anchor-link">Earnings + withdrawals — Models 2/3<a href="#earnings-withdrawals--models-23" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p><code>GET /v1/earnings</code> → <code>{ pending, available, total_earned, total_withdrawn, total_disbursed, settlement_token }</code>.</p>
+<p><code>POST /v1/withdrawals</code> (not for Model 1 — use <code>/v1/disburse</code>) body
+<code>{ amount }</code>. Destination wallet always comes from the partner record, never
+the request body. Response includes <code>payout_token</code> and <code>withdrawable_code</code> —
+<strong>both missing from the SDK's <code>Withdrawal</code> type</strong>.</p>
+<p><code>GET /v1/withdrawals/:id</code> — same shape.</p>
+<h3 id="consumer-wallet-endpoints-jwt-auth-only-not-reachable-via-the-sdk" class="tsd-anchor-link">Consumer wallet endpoints — JWT auth only, not reachable via the SDK<a href="#consumer-wallet-endpoints-jwt-auth-only-not-reachable-via-the-sdk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul>
+<li><code>GET /v1/me/conversions?page=&amp;perPage=</code> — current JWT user's conversion
+history + wallet balance summary (<code>wallet.{totalBalance,availableBalance,pendingBalance,...}</code>).</li>
+<li><code>POST /v1/me/withdrawals</code> body <code>{ amount }</code> — user pulls from their
+whitelabel wallet (Model 1 only).</li>
+<li><code>GET /v1/me/withdrawals?page=&amp;perPage=</code>, <code>GET /v1/me/withdrawals/:id</code>.</li>
+</ul>
+<hr>
+<h2 id="webhooks" class="tsd-anchor-link">Webhooks<a href="#webhooks" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Fired to <code>partner.webhookUrl</code> on conversion state changes:
+<code>conversion.pending</code> (on click→order postback) → <code>conversion.confirmed</code> or
+<code>conversion.reversed</code>.</p>
+<blockquote>
+<p><strong>The SDK's <code>WebhookEventType</code> union only lists <code>conversion.confirmed</code> and
+<code>conversion.reversed</code> — <code>conversion.pending</code> is a real event type you will
+receive and is currently untyped in the SDK.</strong></p>
+</blockquote>
+<p>Request: <code>POST &lt;your webhookUrl&gt;</code>, JSON body, headers:</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Content-Type</code></td>
+<td><code>application/json</code></td>
+</tr>
+<tr>
+<td><code>X-Laguna-Signature</code></td>
+<td><code>sha256=&lt;hex hmac&gt;</code> — <strong>only sent if you've configured a webhook secret</strong>; omitted entirely otherwise</td>
+</tr>
+<tr>
+<td><code>X-Laguna-Partner-Id</code></td>
+<td>your partner id</td>
+</tr>
+<tr>
+<td><code>X-Laguna-Event-Type</code></td>
+<td><code>conversion.pending</code> | <code>conversion.confirmed</code> | <code>conversion.reversed</code></td>
+</tr>
+<tr>
+<td><code>X-Laguna-Event-Id</code></td>
+<td>idempotency key for this delivery attempt</td>
+</tr>
+<tr>
+<td><code>X-Laguna-Attempt</code></td>
+<td>attempt number, starting at 1</td>
+</tr>
+</tbody>
+</table>
+<p>Signature: <code>hex(HMAC_SHA256(secret, raw_json_body))</code>, compared against the
+<code>sha256=</code> prefix — identical scheme to <code>verifyWebhookSignature()</code> in the SDK.</p>
+<p>Body (<code>WebhookPayload</code> — matches the SDK's type):</p>
+<pre><code class="jsonc"><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;event_type&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;conversion.confirmed&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;transaction_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;order_xyz&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;confirmed&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;gross_commission&quot;</span><span class="hl-1">: </span><span class="hl-9">10.0</span><span class="hl-1">, </span><span class="hl-12">&quot;user_amount&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_amount&quot;</span><span class="hl-1">: </span><span class="hl-9">2.0</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;earned_rate_pct&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;geo_at_purchase&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;settlement_token&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;USDC&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;conversion_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;occurred_at&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;2026-08-06T00:00:00.000Z&quot;</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Retry schedule on non-2xx / network error / timeout (5s):
+<strong>1m → 5m → 30m → 2h → 8h</strong>, then <code>dead_letter</code> (requires manual replay by
+Laguna ops — there's no partner-facing endpoint to trigger a replay).</p>
+<p>If you never respond 2xx and don't have a webhook configured at all, nothing
+is sent — settlement still happens, but you'll only see it by polling
+<code>GET /v1/links</code>, <code>/v1/disbursements/:id</code>, <code>/v1/earnings</code>, etc.</p>
+<h2 id="errors" class="tsd-anchor-link">Errors<a href="#errors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>All error bodies: <code>{ &quot;message&quot;: &quot;...&quot;, &quot;code&quot;?: &quot;...&quot;, ... }</code> (code present
+for domain exceptions; generic HTTP errors only have <code>message</code>).</p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>401</td>
+<td><code>INVALID_API_KEY_FORMAT</code></td>
+<td>Bearer token isn't <code>lg_live_*</code>/<code>lg_test_*</code> and isn't a valid JWT</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>INVALID_API_KEY</code></td>
+<td>Key not found or revoked</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>PARTNER_SUSPENDED</code></td>
+<td>Partner account suspended</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>MERCHANT_NOT_SUBSCRIBED</code></td>
+<td>Not approved for this merchant — <code>POST /v1/subscriptions</code> first</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>WRONG_PAYOUT_MODE</code></td>
+<td>e.g. calling <code>/v1/disburse</code> on a Model 2/3 partner, or <code>/v1/withdrawals</code> on Model 1</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>WALLET_REQUIRED</code></td>
+<td>Partner has no wallet on file (withdrawals)</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>CONVERSION_NOT_FOUND</code></td>
+<td><code>transaction_id</code> doesn't match a confirmed conversion for this partner</td>
+</tr>
+<tr>
+<td>409-ish (domain)</td>
+<td><code>DISBURSEMENT_ALREADY_PROCESSED</code></td>
+<td>Retried a <code>transaction_id</code> that already completed</td>
+</tr>
+<tr>
+<td>429</td>
+<td><code>rate_limit_exceeded</code></td>
+<td>See below</td>
+</tr>
+<tr>
+<td>400/422</td>
+<td>—</td>
+<td>Validation errors, generic <code>message</code></td>
+</tr>
+<tr>
+<td>5xx</td>
+<td>—</td>
+<td>Server error</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rate-limits" class="tsd-anchor-link">Rate limits<a href="#rate-limits" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>There is <strong>no general per-request rate limit</strong> on the whitelabel API today.
+The only enforced limit is <strong>link minting</strong>: 100,000 <code>POST /v1/links</code> per
+partner per UTC day. On breach:</p>
+<pre><code class="jsonc"><span class="hl-7">// 429</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;statusCode&quot;</span><span class="hl-1">: </span><span class="hl-9">429</span><span class="hl-1">, </span><span class="hl-12">&quot;error&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;rate_limit_exceeded&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;limit&quot;</span><span class="hl-1">: </span><span class="hl-9">100000</span><span class="hl-1">, </span><span class="hl-12">&quot;window&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;1d&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;retryAfter&quot;</span><span class="hl-1">: </span><span class="hl-9">3421</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<blockquote>
+<p><strong>Note for SDK users:</strong> the retry delay is in the JSON body (<code>retryAfter</code>,
+seconds), <em>not</em> a <code>Retry-After</code> HTTP header. The SDK's
+<code>LagunaRateLimitError.retryAfterSeconds</code> reads the header, which the
+server never sets — so today it will always come back <code>undefined</code>. Read
+<code>retryAfter</code> from the parsed response body instead until this is fixed.</p>
+</blockquote>
+<h2 id="caching" class="tsd-anchor-link">Caching<a href="#caching" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p><code>GET /v1/merchants</code> and <code>/v1/merchants/:id</code> return <code>cache_ttl</code> (currently
+3600s) — cache rates for that long server-side rather than calling on every
+end-user page view. <code>GET /v1/catalog</code> has no <code>cache_ttl</code>; it's meant for
+integration-time discovery, not a hot path.</p>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#laguna-whitelabel-api-reference-non-sdk"><span>Laguna <wbr/>Whitelabel <wbr/>API <wbr/>Reference (non-<wbr/>SDK)</span></a>
+<ul>
+<li><a href="#base-url"><span>Base <wbr/>URL</span></a></li>
+<li><a href="#authentication"><span>Authentication</span></a></li>
+<li>
+<ul>
+<li><a href="#1-partner-api-key-server-to-server"><span>1. <wbr/>Partner <wbr/>API key (server-<wbr/>to-<wbr/>server)</span></a></li>
+<li><a href="#2-jwt-session-consumer-whitelabel-wallet-ui"><span>2. <wbr/>JWT session (consumer / whitelabel wallet <wbr/>UI)</span></a></li></ul></li>
+<li><a href="#partner-api-key-endpoints"><span>Partner <wbr/>API key endpoints</span></a></li>
+<li>
+<ul>
+<li><a href="#catalog"><span>Catalog</span></a></li>
+<li>
+<ul>
+<li><a href="#_"><span></span></a></li>
+<li><a href="#_-1"><span></span></a></li>
+<li><a href="#-rate-refresh-subscribed-only-implicit"><span> — rate refresh (subscribed only, implicit)</span></a></li>
+<li><a href="#-single-merchant-subscribed"><span> — single merchant (subscribed)</span></a></li></ul></li>
+<li><a href="#subscriptions"><span>Subscriptions</span></a></li>
+<li><a href="#links"><span>Links</span></a></li>
+<li>
+<ul>
+<li><a href="#-mint-a-tracked-shortlink-subscribed"><span> — mint a tracked shortlink (subscribed)</span></a></li>
+<li><a href="#-not-in-the-sdk"><span> — not in the <wbr/>SDK</span></a></li></ul></li>
+<li><a href="#sandbox-test-mode-not-in-the-sdk"><span>Sandbox test mode —  (not in the <wbr/>SDK)</span></a></li>
+<li><a href="#disbursements-model-1-only"><span>Disbursements — <wbr/>Model 1 only</span></a></li>
+<li>
+<ul>
+<li><a href="#_-2"><span></span></a></li>
+<li><a href="#_-3"><span></span></a></li></ul></li>
+<li><a href="#earnings-withdrawals--models-23"><span>Earnings + withdrawals — <wbr/>Models 2/3</span></a></li>
+<li><a href="#consumer-wallet-endpoints-jwt-auth-only-not-reachable-via-the-sdk"><span>Consumer wallet endpoints — <wbr/>JWT auth only, not reachable via the <wbr/>SDK</span></a></li></ul></li>
+<li><a href="#webhooks"><span>Webhooks</span></a></li>
+<li><a href="#errors"><span>Errors</span></a></li>
+<li><a href="#rate-limits"><span>Rate limits</span></a></li>
+<li><a href="#caching"><span>Caching</span></a></li></ul></div></details></div>
+<div class="site-menu">
+<nav id="tsd-sidebar-links" class="tsd-navigation"><a href="https://github.com/Laguna-Team/laguna-sdk" class="tsd-nav-link">GitHub</a><a href="https://www.npmjs.com/package/@laguna-team/whitelabel-sdk" class="tsd-nav-link">npm</a></nav>
+<nav class="tsd-navigation"><a href="../modules.html">Laguna Whitelabel SDK - v0.1.2</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

@@ -39,6 +39,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "docs": "typedoc",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -54,6 +55,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
     "tsup": "^8.0.0",
+    "typedoc": "^0.28.20",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },

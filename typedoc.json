@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "exclude": ["src/**/*.test.ts"],
+  "out": "docs",
+  "name": "Laguna Whitelabel SDK",
+  "readme": "README.md",
+  "projectDocuments": ["API-REFERENCE.md", "CHANGELOG.md"],
+  "includeVersion": true,
+  "categorizeByGroup": true,
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "hideGenerator": false,
+  "sort": ["source-order"],
+  "titleLink": "https://github.com/Laguna-Team/laguna-sdk",
+  "navigationLinks": {
+    "GitHub": "https://github.com/Laguna-Team/laguna-sdk",
+    "npm": "https://www.npmjs.com/package/@laguna-team/whitelabel-sdk"
+  }
+}

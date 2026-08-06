@@ -238,7 +238,7 @@ export class LagunaClient {
 
 // ---------- Resources ----------
 
-class CatalogResource {
+export class CatalogResource {
   constructor(private readonly client: LagunaClient) {}
 
   /**
@@ -250,7 +250,7 @@ class CatalogResource {
   }
 }
 
-class MerchantsResource {
+export class MerchantsResource {
   constructor(private readonly client: LagunaClient) {}
 
   /**
@@ -271,7 +271,7 @@ class MerchantsResource {
   }
 }
 
-class SubscriptionsResource {
+export class SubscriptionsResource {
   constructor(private readonly client: LagunaClient) {}
 
   list(filter?: { status?: SubscriptionStatus }): Promise<SubscriptionListResponse> {
@@ -289,7 +289,7 @@ class SubscriptionsResource {
   }
 }
 
-class LinksResource {
+export class LinksResource {
   constructor(private readonly client: LagunaClient) {}
 
   /**
@@ -301,7 +301,7 @@ class LinksResource {
   }
 }
 
-class DisbursementsResource {
+export class DisbursementsResource {
   constructor(private readonly client: LagunaClient) {}
 
   /**
@@ -318,7 +318,7 @@ class DisbursementsResource {
   }
 }
 
-class EarningsResource {
+export class EarningsResource {
   constructor(private readonly client: LagunaClient) {}
 
   get(): Promise<Earnings> {
@@ -326,7 +326,7 @@ class EarningsResource {
   }
 }
 
-class WithdrawalsResource {
+export class WithdrawalsResource {
   constructor(private readonly client: LagunaClient) {}
 
   /** Create a withdrawal — Models 2 (fallback) + 3 (manual settlement). */
@@ -339,7 +339,7 @@ class WithdrawalsResource {
   }
 }
 
-class WebhooksResource {
+export class WebhooksResource {
   constructor(private readonly secret: string | undefined) {}
 
   /**
