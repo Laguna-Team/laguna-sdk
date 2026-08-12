@@ -6,7 +6,6 @@ the `laguna-agent-backend` and `backend_worker` source as of **2026-08-06**.
 If you're on Node/TypeScript, prefer the [SDK](./README.md) — this document
 describes the wire protocol it wraps.
 
-> This file documents behavior observed in code, not a hand-maintained spec.
 > Endpoints under **Internal** / **Admin** are not partner-facing and are
 > listed only for completeness.
 
@@ -19,6 +18,26 @@ describes the wire protocol it wraps.
 
 All partner endpoints below are mounted under `/api/v1/...` (global `api`
 prefix + controller `v1` prefix).
+
+## Geo codes
+
+Send **ISO 3166-1 alpha-2** (`"SG"`, not `"SGP"`) in every `geo` request
+param/body field. That's what the whitelabel controller's own Swagger
+example uses, and it's enforced as a hard 2-character format on the
+catalog/merchant MCP tools that share the same underlying services.
+
+Internally, geo data is inconsistent — some tables (merchant-country
+availability) store alpha-3, others (network program routes) store alpha-2,
+and there's a dedicated conversion module (`shared/geo.utils.ts`,
+`toAlpha2`/`toAlpha3`/`geoMatches`) purpose-built to reconcile the two so
+request-time matching works regardless of which format a given route
+happens to use. That reconciliation is applied to **requests** (what you
+send), not to **responses**: the `supported_geos` array on
+`GET /v1/catalog` and the `i18n`-adjacent geo fields on
+`GET /v1/merchants(/:id)` echo back whatever format that merchant's routes
+were stored in, so don't assume the response is always alpha-2 — treat it
+as an opaque token to display or round-trip, and always send alpha-2
+yourself on requests.
 
 ## Authentication
 
@@ -159,10 +178,20 @@ Query: `geo?`. `403 MERCHANT_NOT_SUBSCRIBED` if not approved.
 }
 ```
 
-Treat everything after the first block as **unstable/undocumented
-compatibility fields** — they mirror the internal admin merchant-list shape
-and may change without notice. Rely only on the first block for a public
-contract.
+The second block isn't ad hoc — it deliberately mirrors the merchant-list
+response shape from Laguna's main consumer app (`backend`'s
+`merchant.service.ts`, consumed by `laguna-web-fe`), so the same frontend
+components can render whitelabel and main-app merchant cards from an
+identical payload. It's real, populated data, not placeholders.
+
+That said, treat it as a **secondary, best-effort contract**: it's
+camelCase (unlike the rest of this snake_case API), several fields exist
+only to serve main-app UI concepts that don't obviously map onto a
+whitelabel partner's own UI (`isUpsize`, `infoTier`, `configTierToken`,
+`dayEndText`, `cashbackHighestIcon`), and it will track whatever the main
+app's merchant-list shape does over time rather than anything versioned for
+partners. Build your integration on the first block; treat the second as
+"available if useful, not a promise."
 
 ### Subscriptions
 
@@ -182,10 +211,15 @@ rates for a merchant.
 #### `POST /v1/links` — mint a tracked shortlink (**subscribed**)
 
 ```jsonc
-// request — geo is REQUIRED (server 400s without it; the SDK's TS type
-// currently marks it optional — see audit notes)
+// request — geo is REQUIRED (server 400s "geo is required" without it)
 { "merchant_id": "shopee", "partner_user_id": "user_abc123", "geo": "SG", "target_url": "https://shopee.sg/product/abc" }
 ```
+
+> `geo` was optional at launch (2026-04-17) and the SDK's `CreateLinkParams.geo?`
+> was correct when written. It became required on 2026-06-22, when link
+> minting switched to pinning the route's geo at mint time instead of
+> recalculating it per click — a deliberate behavior change, not a bug. The
+> SDK's type is just stale by ~2 months; always send `geo`.
 
 ```jsonc
 // 201
@@ -237,8 +271,9 @@ click) → `POST /v1/test/conversions`.
 
 #### `POST /v1/disburse`
 Idempotent on `transaction_id` (must match a **confirmed** conversion's
-`network_order_id` for this partner). `403 WRONG_PAYOUT_MODE` if the partner
-isn't on `model_1_user_wallet`.
+`network_order_id` for this partner — `422 CONVERSION_NOT_FOUND` if not).
+`422 WRONG_PAYOUT_MODE` if the partner isn't on `model_1_user_wallet` (see
+[Errors](#errors) for why these are 422, not 400/403).
 
 ```jsonc
 // request
@@ -247,11 +282,11 @@ isn't on `model_1_user_wallet`.
 ```jsonc
 // 200/201
 { "disbursement_id": "...", "status": "processing", "amount_usdc": 4.2,
-  "destination_wallet": "0x...", "withdrawable_code": "AbC12345", // ← not in SDK's DisburseResult type
+  "destination_wallet": "0x...", "withdrawable_code": "AbC12345", // ← added 2026-07-15, not in SDK's DisburseResult type
   "message": "Disbursement queued. Poll GET /v1/disbursements/:id for status." }
 ```
-Repeat calls with the same `transaction_id` after completion →
-`409-ish` domain error `DISBURSEMENT_ALREADY_PROCESSED`.
+Repeat calls with the same `transaction_id` after completion → `422`
+`DISBURSEMENT_ALREADY_PROCESSED` (see [Errors](#errors) for why it's 422).
 
 #### `GET /v1/disbursements/:id`
 ```jsonc
@@ -266,8 +301,9 @@ Repeat calls with the same `transaction_id` after completion →
 
 `POST /v1/withdrawals` (not for Model 1 — use `/v1/disburse`) body
 `{ amount }`. Destination wallet always comes from the partner record, never
-the request body. Response includes `payout_token` and `withdrawable_code` —
-**both missing from the SDK's `Withdrawal` type**.
+the request body. Response includes `payout_token` and `withdrawable_code`,
+both added server-side on 2026-07-15 — after the SDK's last release
+(2026-04-23) — so its `Withdrawal` type doesn't have them yet.
 
 `GET /v1/withdrawals/:id` — same shape.
 
@@ -285,11 +321,15 @@ the request body. Response includes `payout_token` and `withdrawable_code` —
 
 Fired to `partner.webhookUrl` on conversion state changes:
 `conversion.pending` (on click→order postback) → `conversion.confirmed` or
-`conversion.reversed`.
+`conversion.reversed`. `conversion.pending` fires for every partner
+conversion, not only sandbox test ones — it isn't a rare case to special-case
+away.
 
-> **The SDK's `WebhookEventType` union only lists `conversion.confirmed` and
-> `conversion.reversed` — `conversion.pending` is a real event type you will
-> receive and is currently untyped in the SDK.**
+> `conversion.pending` was added to the event set on 2026-06-24, two months
+> after the SDK's last release. Its `WebhookEventType` union still only has
+> `'conversion.confirmed' | 'conversion.reversed'` — handle the string
+> `'conversion.pending'` at runtime even though the SDK's types don't know
+> about it yet.
 
 Request: `POST <your webhookUrl>`, JSON body, headers:
 
@@ -326,22 +366,59 @@ is sent — settlement still happens, but you'll only see it by polling
 
 ## Errors
 
-All error bodies: `{ "message": "...", "code"?: "...", ... }` (code present
-for domain exceptions; generic HTTP errors only have `message`).
+There are **two different response envelopes** depending on which layer
+throws, and they're not interchangeable — worth knowing before you write a
+generic error parser.
 
-| HTTP | code | Meaning |
-|---|---|---|
-| 401 | `INVALID_API_KEY_FORMAT` | Bearer token isn't `lg_live_*`/`lg_test_*` and isn't a valid JWT |
-| 401 | `INVALID_API_KEY` | Key not found or revoked |
-| 401 | `PARTNER_SUSPENDED` | Partner account suspended |
-| 403 | `MERCHANT_NOT_SUBSCRIBED` | Not approved for this merchant — `POST /v1/subscriptions` first |
-| 403 | `WRONG_PAYOUT_MODE` | e.g. calling `/v1/disburse` on a Model 2/3 partner, or `/v1/withdrawals` on Model 1 |
-| 400 | `WALLET_REQUIRED` | Partner has no wallet on file (withdrawals) |
-| 400 | `CONVERSION_NOT_FOUND` | `transaction_id` doesn't match a confirmed conversion for this partner |
-| 409-ish (domain) | `DISBURSEMENT_ALREADY_PROCESSED` | Retried a `transaction_id` that already completed |
-| 429 | `rate_limit_exceeded` | See below |
-| 400/422 | — | Validation errors, generic `message` |
-| 5xx | — | Server error |
+**1. Most errors** (auth, scope/subscription checks, manual validation like
+"geo is required", the 429 rate limiter) go through a global
+`HttpExceptionFilter`:
+
+```jsonc
+{ "code": 401, "message": "API key not found or has been revoked", "data": { "statusCode": 401, "message": "...", "error": "Unauthorized" }, "traceId": "..." }
+```
+
+`code` here is just the HTTP status number. The human-readable reason lives
+in `message` — **the machine-readable strings in the table below
+(`INVALID_API_KEY`, `MERCHANT_NOT_SUBSCRIBED`, etc.) are only present as
+substrings of `message` text on this path, not as a separate stable field.**
+The guards that throw them (`PartnerApiKeyGuard`, `MerchantScopeGuard`)
+construct a plain `UnauthorizedException`/`ForbiddenException` from the
+domain exception's `.message` and drop its `.code` — so don't switch on a
+`code`/`data` value for these; match on HTTP status, and on `message`
+content only if you must.
+
+**2. A handful of finance/payout errors** are thrown as raw domain
+exceptions and skip that filter, landing in a separate
+`DomainExceptionFilter` with a different shape — and because none of their
+codes are in that filter's status map, **all four currently resolve to
+`422`**, not the status you might expect from their name:
+
+```jsonc
+{ "statusCode": 422, "message": "POST /v1/disburse is only available for partners on model_1_user_wallet.", "code": "WRONG_PAYOUT_MODE", "traceId": "..." }
+```
+
+Here `code` *is* the reliable machine-readable string.
+
+| HTTP | Envelope | code / identifier | Meaning |
+|---|---|---|---|
+| 401 | #1 | `INVALID_API_KEY_FORMAT` (in `message`) | Bearer token isn't `lg_live_*`/`lg_test_*` and isn't a valid JWT |
+| 401 | #1 | `INVALID_API_KEY` (in `message`) | Key not found or revoked |
+| 401 | #1 | `PARTNER_SUSPENDED` (in `message`) | Partner account suspended |
+| 403 | #1 | `MERCHANT_NOT_SUBSCRIBED` (in `message`) | Not approved for this merchant — `POST /v1/subscriptions` first |
+| 422 | #2 | `code: "WRONG_PAYOUT_MODE"` | e.g. calling `/v1/disburse` on a Model 2/3 partner, or `/v1/withdrawals` on Model 1 |
+| 422 | #2 | `code: "WALLET_REQUIRED"` | Partner has no wallet on file (withdrawals) |
+| 422 | #2 | `code: "CONVERSION_NOT_FOUND"` | `transaction_id` doesn't match a confirmed conversion for this partner |
+| 422 | #2 | `code: "DISBURSEMENT_ALREADY_PROCESSED"` | Retried a `transaction_id` that already completed |
+| 429 | #1 | `rate_limit_exceeded` (in `data.error`) | See [Rate limits](#rate-limits) |
+| 400 | #1 | — | Validation errors (missing/invalid fields), generic `message` |
+| 5xx | — | — | Server error |
+
+The SDK doesn't depend on any of this, for what it's worth — `client.ts`
+picks its typed error class off the HTTP status code alone and reads
+`message`/`error` for the text, so it works fine against either envelope. It
+just means `err.responseBody` (which is the raw envelope) has a different
+shape depending on which endpoint failed.
 
 ## Rate limits
 
@@ -350,17 +427,24 @@ The only enforced limit is **link minting**: 100,000 `POST /v1/links` per
 partner per UTC day. On breach:
 
 ```jsonc
-// 429
-{ "statusCode": 429, "error": "rate_limit_exceeded",
+// 429 — full response body (see envelope #1 in Errors)
+{
+  "code": 429,
   "message": "Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.",
-  "limit": 100000, "window": "1d", "retryAfter": 3421 }
+  "data": {
+    "statusCode": 429, "error": "rate_limit_exceeded",
+    "message": "Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.",
+    "limit": 100000, "window": "1d", "retryAfter": 3421
+  },
+  "traceId": "..."
+}
 ```
 
-> **Note for SDK users:** the retry delay is in the JSON body (`retryAfter`,
-> seconds), *not* a `Retry-After` HTTP header. The SDK's
-> `LagunaRateLimitError.retryAfterSeconds` reads the header, which the
-> server never sets — so today it will always come back `undefined`. Read
-> `retryAfter` from the parsed response body instead until this is fixed.
+> **Note for SDK users:** the retry delay only exists as `data.retryAfter`
+> in that JSON body (seconds) — no `Retry-After` HTTP header is ever set.
+> The SDK's `LagunaRateLimitError.retryAfterSeconds` reads that header, so
+> against this endpoint it will always come back `undefined`. Until that's
+> fixed SDK-side, read `err.responseBody.data.retryAfter` instead.
 
 ## Caching
 

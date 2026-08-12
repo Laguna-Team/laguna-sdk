@@ -16,8 +16,7 @@ the <code>laguna-agent-backend</code> and <code>backend_worker</code> source as 
 If you're on Node/TypeScript, prefer the <a href="../">SDK</a> — this document
 describes the wire protocol it wraps.</p>
 <blockquote>
-<p>This file documents behavior observed in code, not a hand-maintained spec.
-Endpoints under <strong>Internal</strong> / <strong>Admin</strong> are not partner-facing and are
+<p>Endpoints under <strong>Internal</strong> / <strong>Admin</strong> are not partner-facing and are
 listed only for completeness.</p>
 </blockquote>
 <h2 id="base-url" class="tsd-anchor-link">Base URL<a href="#base-url" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
@@ -44,6 +43,23 @@ listed only for completeness.</p>
 </table>
 <p>All partner endpoints below are mounted under <code>/api/v1/...</code> (global <code>api</code>
 prefix + controller <code>v1</code> prefix).</p>
+<h2 id="geo-codes" class="tsd-anchor-link">Geo codes<a href="#geo-codes" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Send <strong>ISO 3166-1 alpha-2</strong> (<code>&quot;SG&quot;</code>, not <code>&quot;SGP&quot;</code>) in every <code>geo</code> request
+param/body field. That's what the whitelabel controller's own Swagger
+example uses, and it's enforced as a hard 2-character format on the
+catalog/merchant MCP tools that share the same underlying services.</p>
+<p>Internally, geo data is inconsistent — some tables (merchant-country
+availability) store alpha-3, others (network program routes) store alpha-2,
+and there's a dedicated conversion module (<code>shared/geo.utils.ts</code>,
+<code>toAlpha2</code>/<code>toAlpha3</code>/<code>geoMatches</code>) purpose-built to reconcile the two so
+request-time matching works regardless of which format a given route
+happens to use. That reconciliation is applied to <strong>requests</strong> (what you
+send), not to <strong>responses</strong>: the <code>supported_geos</code> array on
+<code>GET /v1/catalog</code> and the <code>i18n</code>-adjacent geo fields on
+<code>GET /v1/merchants(/:id)</code> echo back whatever format that merchant's routes
+were stored in, so don't assume the response is always alpha-2 — treat it
+as an opaque token to display or round-trip, and always send alpha-2
+yourself on requests.</p>
 <h2 id="authentication" class="tsd-anchor-link">Authentication<a href="#authentication" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Two distinct auth modes share the same <code>Authorization: Bearer &lt;token&gt;</code>
 header and the same route table. The server picks the mode by prefix-sniffing
@@ -133,10 +149,19 @@ to decide what to subscribe to.</p>
 <pre><code class="jsonc"><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;logo_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;best_rate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;rate_note&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Up to 4.5% depending on category&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;category_rates&quot;</span><span class="hl-1">: [{ </span><span class="hl-12">&quot;sub_category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;rate&quot;</span><span class="hl-1">: </span><span class="hl-9">3.0</span><span class="hl-1"> }],</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;cookie_days&quot;</span><span class="hl-1">: </span><span class="hl-9">7</span><span class="hl-1">, </span><span class="hl-12">&quot;payout_days&quot;</span><span class="hl-1">: </span><span class="hl-9">45</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;supported_geos&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-2">&quot;MY&quot;</span><span class="hl-1">], </span><span class="hl-12">&quot;cache_ttl&quot;</span><span class="hl-1">: </span><span class="hl-9">3600</span><span class="hl-1">, </span><span class="hl-12">&quot;available&quot;</span><span class="hl-1">: </span><span class="hl-5">true</span><span class="hl-1">,</span><br/><br/><span class="hl-1">  </span><span class="hl-7">// --- i18n (added 2026-07-14/15, not in SDK types) ---</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;i18n&quot;</span><span class="hl-1">: {</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;category&quot;</span><span class="hl-1">: { </span><span class="hl-12">&quot;en&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Shopping&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;vi&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Mua sắm&quot;</span><span class="hl-1"> },</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;category_rates&quot;</span><span class="hl-1">: [{ </span><span class="hl-12">&quot;sub_category&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;translations&quot;</span><span class="hl-1">: { </span><span class="hl-12">&quot;en&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Electronics&quot;</span><span class="hl-1"> } }]</span><br/><span class="hl-1">  },</span><br/><br/><span class="hl-1">  </span><span class="hl-7">// --- additive fields for compatibility with the main backend&#39;s merchant-list shape ---</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;description&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://shopee.sg&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;imgUrl&quot;</span><span class="hl-1">: [</span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;slugId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;canonicalMerchantId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;highestRate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;maxCashbackRate&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;rateCashbackMax&quot;</span><span class="hl-1">: </span><span class="hl-9">4.5</span><span class="hl-1">, </span><span class="hl-12">&quot;rateCashbackMin&quot;</span><span class="hl-1">: </span><span class="hl-9">1.0</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;dayEndText&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;isUpsize&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">, </span><span class="hl-12">&quot;infoTier&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;configTierToken&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;iconTokenMax&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;iconTokenMin&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;isDisplayTier&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">, </span><span class="hl-12">&quot;cashbackHighestIcon&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;dos&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;donts&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;trackingTimeLine&quot;</span><span class="hl-1">: [], </span><span class="hl-12">&quot;termAndCondition&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;trackTime&quot;</span><span class="hl-1">: </span><span class="hl-9">7</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawableTime&quot;</span><span class="hl-1">: </span><span class="hl-9">45</span><span class="hl-1">, </span><span class="hl-12">&quot;isClickId&quot;</span><span class="hl-1">: </span><span class="hl-5">false</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;tags&quot;</span><span class="hl-1">: [], </span><span class="hl-12">&quot;thirdPartyType&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;position&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><span class="hl-1">, </span><span class="hl-12">&quot;backgroundColor&quot;</span><span class="hl-1">: </span><span class="hl-5">null</span><br/><span class="hl-1">}</span>
 </code><button type="button">Copy</button></pre>
 
-<p>Treat everything after the first block as <strong>unstable/undocumented
-compatibility fields</strong> — they mirror the internal admin merchant-list shape
-and may change without notice. Rely only on the first block for a public
-contract.</p>
+<p>The second block isn't ad hoc — it deliberately mirrors the merchant-list
+response shape from Laguna's main consumer app (<code>backend</code>'s
+<code>merchant.service.ts</code>, consumed by <code>laguna-web-fe</code>), so the same frontend
+components can render whitelabel and main-app merchant cards from an
+identical payload. It's real, populated data, not placeholders.</p>
+<p>That said, treat it as a <strong>secondary, best-effort contract</strong>: it's
+camelCase (unlike the rest of this snake_case API), several fields exist
+only to serve main-app UI concepts that don't obviously map onto a
+whitelabel partner's own UI (<code>isUpsize</code>, <code>infoTier</code>, <code>configTierToken</code>,
+<code>dayEndText</code>, <code>cashbackHighestIcon</code>), and it will track whatever the main
+app's merchant-list shape does over time rather than anything versioned for
+partners. Build your integration on the first block; treat the second as
+&quot;available if useful, not a promise.&quot;</p>
 <h3 id="subscriptions" class="tsd-anchor-link">Subscriptions<a href="#subscriptions" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <p>Partners must be <strong>approved</strong>-subscribed before minting links or seeing
 rates for a merchant.</p>
@@ -151,9 +176,16 @@ rates for a merchant.</p>
 </ul>
 <h3 id="links" class="tsd-anchor-link">Links<a href="#links" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <h4 id="-mint-a-tracked-shortlink-subscribed" class="tsd-anchor-link"><code>POST /v1/links</code> — mint a tracked shortlink (<strong>subscribed</strong>)<a href="#-mint-a-tracked-shortlink-subscribed" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
-<pre><code class="jsonc"><span class="hl-7">// request — geo is REQUIRED (server 400s without it; the SDK&#39;s TS type</span><br/><span class="hl-7">// currently marks it optional — see audit notes)</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;geo&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;target_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://shopee.sg/product/abc&quot;</span><span class="hl-1"> }</span>
+<pre><code class="jsonc"><span class="hl-7">// request — geo is REQUIRED (server 400s &quot;geo is required&quot; without it)</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;geo&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;SG&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;target_url&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://shopee.sg/product/abc&quot;</span><span class="hl-1"> }</span>
 </code><button type="button">Copy</button></pre>
 
+<blockquote>
+<p><code>geo</code> was optional at launch (2026-04-17) and the SDK's <code>CreateLinkParams.geo?</code>
+was correct when written. It became required on 2026-06-22, when link
+minting switched to pinning the route's geo at mint time instead of
+recalculating it per click — a deliberate behavior change, not a bug. The
+SDK's type is just stale by ~2 months; always send <code>geo</code>.</p>
+</blockquote>
 <pre><code class="jsonc"><span class="hl-7">// 201</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;shortlink&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;https://go.laguna.network/r/AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;shortcode&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC123xy&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;merchant_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;shopee&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;partner_user_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;user_abc123&quot;</span><span class="hl-1"> }</span>
 </code><button type="button">Copy</button></pre>
 
@@ -184,16 +216,17 @@ click) → <code>POST /v1/test/conversions</code>.</p>
 <h3 id="disbursements-model-1-only" class="tsd-anchor-link">Disbursements — Model 1 only<a href="#disbursements-model-1-only" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <h4 id="_-2" class="tsd-anchor-link"><code>POST /v1/disburse</code><a href="#_-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
 <p>Idempotent on <code>transaction_id</code> (must match a <strong>confirmed</strong> conversion's
-<code>network_order_id</code> for this partner). <code>403 WRONG_PAYOUT_MODE</code> if the partner
-isn't on <code>model_1_user_wallet</code>.</p>
+<code>network_order_id</code> for this partner — <code>422 CONVERSION_NOT_FOUND</code> if not).
+<code>422 WRONG_PAYOUT_MODE</code> if the partner isn't on <code>model_1_user_wallet</code> (see
+<a href="#errors">Errors</a> for why these are 422, not 400/403).</p>
 <pre><code class="jsonc"><span class="hl-7">// request</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;transaction_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;order_xyz&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;user_wallet_address&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1"> }</span>
 </code><button type="button">Copy</button></pre>
 
-<pre><code class="jsonc"><span class="hl-7">// 200/201</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;disbursement_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;processing&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;amount_usdc&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;destination_wallet&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawable_code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC12345&quot;</span><span class="hl-1">, </span><span class="hl-7">// ← not in SDK&#39;s DisburseResult type</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Disbursement queued. Poll GET /v1/disbursements/:id for status.&quot;</span><span class="hl-1"> }</span>
+<pre><code class="jsonc"><span class="hl-7">// 200/201</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;disbursement_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;processing&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;amount_usdc&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;destination_wallet&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawable_code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC12345&quot;</span><span class="hl-1">, </span><span class="hl-7">// ← added 2026-07-15, not in SDK&#39;s DisburseResult type</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Disbursement queued. Poll GET /v1/disbursements/:id for status.&quot;</span><span class="hl-1"> }</span>
 </code><button type="button">Copy</button></pre>
 
-<p>Repeat calls with the same <code>transaction_id</code> after completion →
-<code>409-ish</code> domain error <code>DISBURSEMENT_ALREADY_PROCESSED</code>.</p>
+<p>Repeat calls with the same <code>transaction_id</code> after completion → <code>422</code>
+<code>DISBURSEMENT_ALREADY_PROCESSED</code> (see <a href="#errors">Errors</a> for why it's 422).</p>
 <h4 id="_-3" class="tsd-anchor-link"><code>GET /v1/disbursements/:id</code><a href="#_-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
 <pre><code class="jsonc"><span class="hl-1">{ </span><span class="hl-12">&quot;disbursement_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;transaction_id&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;order_xyz&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;withdrawable_code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;AbC12345&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;status&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;completed&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;amount_usdc&quot;</span><span class="hl-1">: </span><span class="hl-9">4.2</span><span class="hl-1">, </span><span class="hl-12">&quot;destination_wallet&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;chain&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;base&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;tx_hash&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;0x...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;created_at&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1"> }</span>
 </code><button type="button">Copy</button></pre>
@@ -202,8 +235,9 @@ isn't on <code>model_1_user_wallet</code>.</p>
 <p><code>GET /v1/earnings</code> → <code>{ pending, available, total_earned, total_withdrawn, total_disbursed, settlement_token }</code>.</p>
 <p><code>POST /v1/withdrawals</code> (not for Model 1 — use <code>/v1/disburse</code>) body
 <code>{ amount }</code>. Destination wallet always comes from the partner record, never
-the request body. Response includes <code>payout_token</code> and <code>withdrawable_code</code> —
-<strong>both missing from the SDK's <code>Withdrawal</code> type</strong>.</p>
+the request body. Response includes <code>payout_token</code> and <code>withdrawable_code</code>,
+both added server-side on 2026-07-15 — after the SDK's last release
+(2026-04-23) — so its <code>Withdrawal</code> type doesn't have them yet.</p>
 <p><code>GET /v1/withdrawals/:id</code> — same shape.</p>
 <h3 id="consumer-wallet-endpoints-jwt-auth-only-not-reachable-via-the-sdk" class="tsd-anchor-link">Consumer wallet endpoints — JWT auth only, not reachable via the SDK<a href="#consumer-wallet-endpoints-jwt-auth-only-not-reachable-via-the-sdk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul>
@@ -217,11 +251,15 @@ whitelabel wallet (Model 1 only).</li>
 <h2 id="webhooks" class="tsd-anchor-link">Webhooks<a href="#webhooks" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Fired to <code>partner.webhookUrl</code> on conversion state changes:
 <code>conversion.pending</code> (on click→order postback) → <code>conversion.confirmed</code> or
-<code>conversion.reversed</code>.</p>
+<code>conversion.reversed</code>. <code>conversion.pending</code> fires for every partner
+conversion, not only sandbox test ones — it isn't a rare case to special-case
+away.</p>
 <blockquote>
-<p><strong>The SDK's <code>WebhookEventType</code> union only lists <code>conversion.confirmed</code> and
-<code>conversion.reversed</code> — <code>conversion.pending</code> is a real event type you will
-receive and is currently untyped in the SDK.</strong></p>
+<p><code>conversion.pending</code> was added to the event set on 2026-06-24, two months
+after the SDK's last release. Its <code>WebhookEventType</code> union still only has
+<code>'conversion.confirmed' | 'conversion.reversed'</code> — handle the string
+<code>'conversion.pending'</code> at runtime even though the SDK's types don't know
+about it yet.</p>
 </blockquote>
 <p>Request: <code>POST &lt;your webhookUrl&gt;</code>, JSON body, headers:</p>
 <table>
@@ -271,87 +309,129 @@ Laguna ops — there's no partner-facing endpoint to trigger a replay).</p>
 is sent — settlement still happens, but you'll only see it by polling
 <code>GET /v1/links</code>, <code>/v1/disbursements/:id</code>, <code>/v1/earnings</code>, etc.</p>
 <h2 id="errors" class="tsd-anchor-link">Errors<a href="#errors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
-<p>All error bodies: <code>{ &quot;message&quot;: &quot;...&quot;, &quot;code&quot;?: &quot;...&quot;, ... }</code> (code present
-for domain exceptions; generic HTTP errors only have <code>message</code>).</p>
+<p>There are <strong>two different response envelopes</strong> depending on which layer
+throws, and they're not interchangeable — worth knowing before you write a
+generic error parser.</p>
+<p><strong>1. Most errors</strong> (auth, scope/subscription checks, manual validation like
+&quot;geo is required&quot;, the 429 rate limiter) go through a global
+<code>HttpExceptionFilter</code>:</p>
+<pre><code class="jsonc"><span class="hl-1">{ </span><span class="hl-12">&quot;code&quot;</span><span class="hl-1">: </span><span class="hl-9">401</span><span class="hl-1">, </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;API key not found or has been revoked&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;data&quot;</span><span class="hl-1">: { </span><span class="hl-12">&quot;statusCode&quot;</span><span class="hl-1">: </span><span class="hl-9">401</span><span class="hl-1">, </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;error&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Unauthorized&quot;</span><span class="hl-1"> }, </span><span class="hl-12">&quot;traceId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<p><code>code</code> here is just the HTTP status number. The human-readable reason lives
+in <code>message</code> — <strong>the machine-readable strings in the table below
+(<code>INVALID_API_KEY</code>, <code>MERCHANT_NOT_SUBSCRIBED</code>, etc.) are only present as
+substrings of <code>message</code> text on this path, not as a separate stable field.</strong>
+The guards that throw them (<code>PartnerApiKeyGuard</code>, <code>MerchantScopeGuard</code>)
+construct a plain <code>UnauthorizedException</code>/<code>ForbiddenException</code> from the
+domain exception's <code>.message</code> and drop its <code>.code</code> — so don't switch on a
+<code>code</code>/<code>data</code> value for these; match on HTTP status, and on <code>message</code>
+content only if you must.</p>
+<p><strong>2. A handful of finance/payout errors</strong> are thrown as raw domain
+exceptions and skip that filter, landing in a separate
+<code>DomainExceptionFilter</code> with a different shape — and because none of their
+codes are in that filter's status map, <strong>all four currently resolve to
+<code>422</code></strong>, not the status you might expect from their name:</p>
+<pre><code class="jsonc"><span class="hl-1">{ </span><span class="hl-12">&quot;statusCode&quot;</span><span class="hl-1">: </span><span class="hl-9">422</span><span class="hl-1">, </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;POST /v1/disburse is only available for partners on model_1_user_wallet.&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;code&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;WRONG_PAYOUT_MODE&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;traceId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><span class="hl-1"> }</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Here <code>code</code> <em>is</em> the reliable machine-readable string.</p>
 <table>
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>Envelope</th>
+<th>code / identifier</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>401</td>
-<td><code>INVALID_API_KEY_FORMAT</code></td>
+<td>#1</td>
+<td><code>INVALID_API_KEY_FORMAT</code> (in <code>message</code>)</td>
 <td>Bearer token isn't <code>lg_live_*</code>/<code>lg_test_*</code> and isn't a valid JWT</td>
 </tr>
 <tr>
 <td>401</td>
-<td><code>INVALID_API_KEY</code></td>
+<td>#1</td>
+<td><code>INVALID_API_KEY</code> (in <code>message</code>)</td>
 <td>Key not found or revoked</td>
 </tr>
 <tr>
 <td>401</td>
-<td><code>PARTNER_SUSPENDED</code></td>
+<td>#1</td>
+<td><code>PARTNER_SUSPENDED</code> (in <code>message</code>)</td>
 <td>Partner account suspended</td>
 </tr>
 <tr>
 <td>403</td>
-<td><code>MERCHANT_NOT_SUBSCRIBED</code></td>
+<td>#1</td>
+<td><code>MERCHANT_NOT_SUBSCRIBED</code> (in <code>message</code>)</td>
 <td>Not approved for this merchant — <code>POST /v1/subscriptions</code> first</td>
 </tr>
 <tr>
-<td>403</td>
-<td><code>WRONG_PAYOUT_MODE</code></td>
+<td>422</td>
+<td>#2</td>
+<td><code>code: &quot;WRONG_PAYOUT_MODE&quot;</code></td>
 <td>e.g. calling <code>/v1/disburse</code> on a Model 2/3 partner, or <code>/v1/withdrawals</code> on Model 1</td>
 </tr>
 <tr>
-<td>400</td>
-<td><code>WALLET_REQUIRED</code></td>
+<td>422</td>
+<td>#2</td>
+<td><code>code: &quot;WALLET_REQUIRED&quot;</code></td>
 <td>Partner has no wallet on file (withdrawals)</td>
 </tr>
 <tr>
-<td>400</td>
-<td><code>CONVERSION_NOT_FOUND</code></td>
+<td>422</td>
+<td>#2</td>
+<td><code>code: &quot;CONVERSION_NOT_FOUND&quot;</code></td>
 <td><code>transaction_id</code> doesn't match a confirmed conversion for this partner</td>
 </tr>
 <tr>
-<td>409-ish (domain)</td>
-<td><code>DISBURSEMENT_ALREADY_PROCESSED</code></td>
+<td>422</td>
+<td>#2</td>
+<td><code>code: &quot;DISBURSEMENT_ALREADY_PROCESSED&quot;</code></td>
 <td>Retried a <code>transaction_id</code> that already completed</td>
 </tr>
 <tr>
 <td>429</td>
-<td><code>rate_limit_exceeded</code></td>
-<td>See below</td>
+<td>#1</td>
+<td><code>rate_limit_exceeded</code> (in <code>data.error</code>)</td>
+<td>See <a href="#rate-limits">Rate limits</a></td>
 </tr>
 <tr>
-<td>400/422</td>
+<td>400</td>
+<td>#1</td>
 <td>—</td>
-<td>Validation errors, generic <code>message</code></td>
+<td>Validation errors (missing/invalid fields), generic <code>message</code></td>
 </tr>
 <tr>
 <td>5xx</td>
+<td>—</td>
 <td>—</td>
 <td>Server error</td>
 </tr>
 </tbody>
 </table>
+<p>The SDK doesn't depend on any of this, for what it's worth — <code>client.ts</code>
+picks its typed error class off the HTTP status code alone and reads
+<code>message</code>/<code>error</code> for the text, so it works fine against either envelope. It
+just means <code>err.responseBody</code> (which is the raw envelope) has a different
+shape depending on which endpoint failed.</p>
 <h2 id="rate-limits" class="tsd-anchor-link">Rate limits<a href="#rate-limits" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>There is <strong>no general per-request rate limit</strong> on the whitelabel API today.
 The only enforced limit is <strong>link minting</strong>: 100,000 <code>POST /v1/links</code> per
 partner per UTC day. On breach:</p>
-<pre><code class="jsonc"><span class="hl-7">// 429</span><br/><span class="hl-1">{ </span><span class="hl-12">&quot;statusCode&quot;</span><span class="hl-1">: </span><span class="hl-9">429</span><span class="hl-1">, </span><span class="hl-12">&quot;error&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;rate_limit_exceeded&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;limit&quot;</span><span class="hl-1">: </span><span class="hl-9">100000</span><span class="hl-1">, </span><span class="hl-12">&quot;window&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;1d&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;retryAfter&quot;</span><span class="hl-1">: </span><span class="hl-9">3421</span><span class="hl-1"> }</span>
+<pre><code class="jsonc"><span class="hl-7">// 429 — full response body (see envelope #1 in Errors)</span><br/><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;code&quot;</span><span class="hl-1">: </span><span class="hl-9">429</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;data&quot;</span><span class="hl-1">: {</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;statusCode&quot;</span><span class="hl-1">: </span><span class="hl-9">429</span><span class="hl-1">, </span><span class="hl-12">&quot;error&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;rate_limit_exceeded&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;message&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-12">&quot;limit&quot;</span><span class="hl-1">: </span><span class="hl-9">100000</span><span class="hl-1">, </span><span class="hl-12">&quot;window&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;1d&quot;</span><span class="hl-1">, </span><span class="hl-12">&quot;retryAfter&quot;</span><span class="hl-1">: </span><span class="hl-9">3421</span><br/><span class="hl-1">  },</span><br/><span class="hl-1">  </span><span class="hl-12">&quot;traceId&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;...&quot;</span><br/><span class="hl-1">}</span>
 </code><button type="button">Copy</button></pre>
 
 <blockquote>
-<p><strong>Note for SDK users:</strong> the retry delay is in the JSON body (<code>retryAfter</code>,
-seconds), <em>not</em> a <code>Retry-After</code> HTTP header. The SDK's
-<code>LagunaRateLimitError.retryAfterSeconds</code> reads the header, which the
-server never sets — so today it will always come back <code>undefined</code>. Read
-<code>retryAfter</code> from the parsed response body instead until this is fixed.</p>
+<p><strong>Note for SDK users:</strong> the retry delay only exists as <code>data.retryAfter</code>
+in that JSON body (seconds) — no <code>Retry-After</code> HTTP header is ever set.
+The SDK's <code>LagunaRateLimitError.retryAfterSeconds</code> reads that header, so
+against this endpoint it will always come back <code>undefined</code>. Until that's
+fixed SDK-side, read <code>err.responseBody.data.retryAfter</code> instead.</p>
 </blockquote>
 <h2 id="caching" class="tsd-anchor-link">Caching<a href="#caching" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p><code>GET /v1/merchants</code> and <code>/v1/merchants/:id</code> return <code>cache_ttl</code> (currently
@@ -375,6 +455,7 @@ integration-time discovery, not a hot path.</p>
 <div class="tsd-accordion-details"><a href="#laguna-whitelabel-api-reference-non-sdk"><span>Laguna <wbr/>Whitelabel <wbr/>API <wbr/>Reference (non-<wbr/>SDK)</span></a>
 <ul>
 <li><a href="#base-url"><span>Base <wbr/>URL</span></a></li>
+<li><a href="#geo-codes"><span>Geo codes</span></a></li>
 <li><a href="#authentication"><span>Authentication</span></a></li>
 <li>
 <ul>
