@@ -11,10 +11,10 @@ describes the wire protocol it wraps.
 
 ## Base URL
 
-| API key prefix | Environment | Base URL |
-|---|---|---|
-| `lg_live_*` | Production | `https://api.laguna.network` |
-| `lg_test_*` | Staging (sandbox) | `https://api-stg.laguna.network` |
+| API key prefix | Environment       | Base URL                         |
+| -------------- | ----------------- | -------------------------------- |
+| `lg_live_*`    | Production        | `https://api.laguna.network`     |
+| `lg_test_*`    | Staging (sandbox) | `https://api-stg.laguna.network` |
 
 All partner endpoints below are mounted under `/api/v1/...` (global `api`
 prefix + controller `v1` prefix).
@@ -77,14 +77,14 @@ partnerCode, userId } }`.
 each scope only unlocks the routes below, enforced server-side regardless of
 what the token claims:
 
-| Scope | Unlocks |
-|---|---|
-| `merchant:read` | `GET /v1/catalog`, `/v1/merchants`, `/v1/merchants/:id`, `/v1/categories` |
-| `link-refer:create` | `POST /v1/links` |
-| `wallet:read` | `GET /v1/me/conversions`, `/v1/me/withdrawals`, `/v1/me/withdrawals/:id` |
-| `wallet:withdraw` | `POST /v1/me/withdrawals` |
+| Scope               | Unlocks                                                                   |
+| ------------------- | ------------------------------------------------------------------------- |
+| `merchant:read`     | `GET /v1/catalog`, `/v1/merchants`, `/v1/merchants/:id`, `/v1/categories` |
+| `link-refer:create` | `POST /v1/links`                                                          |
+| `wallet:read`       | `GET /v1/me/conversions`, `/v1/me/withdrawals`, `/v1/me/withdrawals/:id`  |
+| `wallet:withdraw`   | `POST /v1/me/withdrawals`                                                 |
 
-For `POST /v1/links` under JWT auth, `partner_user_id` is *derived* from the
+For `POST /v1/links` under JWT auth, `partner_user_id` is _derived_ from the
 token's wallet address — do not (and cannot) pass it in the body.
 
 Public partner config lookup (branding, no auth): `GET /partner-config`
@@ -101,6 +101,7 @@ merchant (`403 MERCHANT_NOT_SUBSCRIBED` otherwise) — see [Subscriptions](#subs
 ### Catalog
 
 #### `GET /v1/catalog`
+
 Full merchant catalog, **not** scope-filtered — use this at integration time
 to decide what to subscribe to.
 
@@ -126,18 +127,27 @@ Query: `geo?`, `category?`, `limit?` (default 50, max 200)
 ```
 
 #### `GET /v1/categories`
+
 Not in the SDK. Top-level category browse, no scope filter.
 
 Query: `geo?`
 
 ```jsonc
 // 200
-{ "categories": [
-  { "name": "Shopping", "merchantCount": 42, "topCashbackRate": 8.0, "exampleMerchants": ["shopee", "lazada"] }
-]}
+{
+  "categories": [
+    {
+      "name": "Shopping",
+      "merchantCount": 42,
+      "topCashbackRate": 8.0,
+      "exampleMerchants": ["shopee", "lazada"]
+    }
+  ]
+}
 ```
 
 #### `GET /v1/merchants` — rate refresh (**subscribed only**, implicit)
+
 Returns full rate detail for every **approved** merchant on this key. No
 `?ids=` — the server already knows your scope. Empty scope → `{ merchants: [], total: 0, cache_ttl }`.
 
@@ -147,34 +157,63 @@ Response: `{ merchants: MerchantDetail[], total, cache_ttl }` — cache for
 `cache_ttl` seconds (currently 3600) client-side; don't poll per user request.
 
 #### `GET /v1/merchants/:id` — single merchant (**subscribed**)
+
 Query: `geo?`. `403 MERCHANT_NOT_SUBSCRIBED` if not approved.
 
 **`MerchantDetail` shape (full — the SDK's type only covers the first block):**
 
 ```jsonc
 {
-  "merchant_id": "shopee", "name": "Shopee", "logo_url": "...", "category": "Shopping",
-  "best_rate": 4.5, "rate_note": "Up to 4.5% depending on category",
+  "merchant_id": "shopee",
+  "name": "Shopee",
+  "logo_url": "...",
+  "category": "Shopping",
+  "best_rate": 4.5,
+  "rate_note": "Up to 4.5% depending on category",
   "category_rates": [{ "sub_category": "Electronics", "rate": 3.0 }],
-  "cookie_days": 7, "payout_days": 45,
-  "supported_geos": ["SG", "MY"], "cache_ttl": 3600, "available": true,
+  "cookie_days": 7,
+  "payout_days": 45,
+  "supported_geos": ["SG", "MY"],
+  "cache_ttl": 3600,
+  "available": true,
 
   // --- i18n (added 2026-07-14/15, not in SDK types) ---
   "i18n": {
     "category": { "en": "Shopping", "vi": "Mua sắm" },
-    "category_rates": [{ "sub_category": "Electronics", "translations": { "en": "Electronics" } }]
+    "category_rates": [
+      { "sub_category": "Electronics", "translations": { "en": "Electronics" } }
+    ]
   },
 
   // --- additive fields for compatibility with the main backend's merchant-list shape ---
-  "description": "...", "url": "https://shopee.sg", "imgUrl": ["..."],
-  "slugId": "shopee", "canonicalMerchantId": "shopee",
-  "highestRate": 4.5, "maxCashbackRate": 4.5,
-  "rateCashbackMax": 4.5, "rateCashbackMin": 1.0,
-  "dayEndText": null, "isUpsize": false, "infoTier": null, "configTierToken": null,
-  "iconTokenMax": null, "iconTokenMin": null, "isDisplayTier": false, "cashbackHighestIcon": null,
-  "dos": null, "donts": null, "trackingTimeLine": [], "termAndCondition": null,
-  "trackTime": 7, "withdrawableTime": 45, "isClickId": false,
-  "tags": [], "thirdPartyType": null, "position": null, "backgroundColor": null
+  "description": "...",
+  "url": "https://shopee.sg",
+  "imgUrl": ["..."],
+  "slugId": "shopee",
+  "canonicalMerchantId": "shopee",
+  "highestRate": 4.5,
+  "maxCashbackRate": 4.5,
+  "rateCashbackMax": 4.5,
+  "rateCashbackMin": 1.0,
+  "dayEndText": null,
+  "isUpsize": false,
+  "infoTier": null,
+  "configTierToken": null,
+  "iconTokenMax": null,
+  "iconTokenMin": null,
+  "isDisplayTier": false,
+  "cashbackHighestIcon": null,
+  "dos": null,
+  "donts": null,
+  "trackingTimeLine": [],
+  "termAndCondition": null,
+  "trackTime": 7,
+  "withdrawableTime": 45,
+  "isClickId": false,
+  "tags": [],
+  "thirdPartyType": null,
+  "position": null,
+  "backgroundColor": null
 }
 ```
 
@@ -212,7 +251,12 @@ rates for a merchant.
 
 ```jsonc
 // request — geo is REQUIRED (server 400s "geo is required" without it)
-{ "merchant_id": "shopee", "partner_user_id": "user_abc123", "geo": "SG", "target_url": "https://shopee.sg/product/abc" }
+{
+  "merchant_id": "shopee",
+  "partner_user_id": "user_abc123",
+  "geo": "SG",
+  "target_url": "https://shopee.sg/product/abc"
+}
 ```
 
 > `geo` was optional at launch (2026-04-17) and the SDK's `CreateLinkParams.geo?`
@@ -223,7 +267,12 @@ rates for a merchant.
 
 ```jsonc
 // 201
-{ "shortlink": "https://go.laguna.network/r/AbC123xy", "shortcode": "AbC123xy", "merchant_id": "shopee", "partner_user_id": "user_abc123" }
+{
+  "shortlink": "https://go.laguna.network/r/AbC123xy",
+  "shortcode": "AbC123xy",
+  "merchant_id": "shopee",
+  "partner_user_id": "user_abc123"
+}
 ```
 
 Errors: `400` missing `merchant_id`/`geo` or no route for that geo; `403`
@@ -232,16 +281,28 @@ Idempotency-Key header supported. Rate limit: **100,000 links/partner/day**
 → `429` (see [Rate limits](#rate-limits)).
 
 #### `GET /v1/links` — not in the SDK
+
 List the partner's minted links with click/conversion counts.
 
 Query: `partner_user_id?`, `limit?`, `offset?`
 
 ```jsonc
-{ "links": [
-  { "id": "...", "shortcode": "AbC123xy", "merchant_id": "shopee", "merchant_name": "Shopee",
-    "partner_user_id": "user_abc123", "status": "active",
-    "click_count": 3, "conversion_count": 1, "created_at": "2026-08-01T00:00:00.000Z" }
-], "total": 1 }
+{
+  "links": [
+    {
+      "id": "...",
+      "shortcode": "AbC123xy",
+      "merchant_id": "shopee",
+      "merchant_name": "Shopee",
+      "partner_user_id": "user_abc123",
+      "status": "active",
+      "click_count": 3,
+      "conversion_count": 1,
+      "created_at": "2026-08-01T00:00:00.000Z"
+    }
+  ],
+  "total": 1
+}
 ```
 
 ### Sandbox test mode — `POST /v1/test/conversions` (not in the SDK)
@@ -262,14 +323,24 @@ click) → `POST /v1/test/conversions`.
 
 ```jsonc
 // response
-{ "ok": true, "conversion_id": "...", "conversion_status": "confirmed", "net_commission": 4.2,
-  "partner_id": "...", "partner_user_id": "user_abc123", "shortcode": "AbC123xy",
-  "network_order_id": "...", "webhook_event_id": "...", "webhook_status": "delivered" }
+{
+  "ok": true,
+  "conversion_id": "...",
+  "conversion_status": "confirmed",
+  "net_commission": 4.2,
+  "partner_id": "...",
+  "partner_user_id": "user_abc123",
+  "shortcode": "AbC123xy",
+  "network_order_id": "...",
+  "webhook_event_id": "...",
+  "webhook_status": "delivered"
+}
 ```
 
 ### Disbursements — Model 1 only
 
 #### `POST /v1/disburse`
+
 Idempotent on `transaction_id` (must match a **confirmed** conversion's
 `network_order_id` for this partner — `422 CONVERSION_NOT_FOUND` if not).
 `422 WRONG_PAYOUT_MODE` if the partner isn't on `model_1_user_wallet` (see
@@ -279,20 +350,36 @@ Idempotent on `transaction_id` (must match a **confirmed** conversion's
 // request
 { "transaction_id": "order_xyz", "user_wallet_address": "0x..." }
 ```
+
 ```jsonc
 // 200/201
-{ "disbursement_id": "...", "status": "processing", "amount_usdc": 4.2,
-  "destination_wallet": "0x...", "withdrawable_code": "AbC12345", // ← added 2026-07-15, not in SDK's DisburseResult type
-  "message": "Disbursement queued. Poll GET /v1/disbursements/:id for status." }
+{
+  "disbursement_id": "...",
+  "status": "processing",
+  "amount_usdc": 4.2,
+  "destination_wallet": "0x...",
+  "withdrawable_code": "AbC12345", // ← added 2026-07-15, not in SDK's DisburseResult type
+  "message": "Disbursement queued. Poll GET /v1/disbursements/:id for status."
+}
 ```
+
 Repeat calls with the same `transaction_id` after completion → `422`
 `DISBURSEMENT_ALREADY_PROCESSED` (see [Errors](#errors) for why it's 422).
 
 #### `GET /v1/disbursements/:id`
+
 ```jsonc
-{ "disbursement_id": "...", "transaction_id": "order_xyz", "withdrawable_code": "AbC12345",
-  "status": "completed", "amount_usdc": 4.2, "destination_wallet": "0x...",
-  "chain": "base", "tx_hash": "0x...", "created_at": "..." }
+{
+  "disbursement_id": "...",
+  "transaction_id": "order_xyz",
+  "withdrawable_code": "AbC12345",
+  "status": "completed",
+  "amount_usdc": 4.2,
+  "destination_wallet": "0x...",
+  "chain": "base",
+  "tx_hash": "0x...",
+  "created_at": "..."
+}
 ```
 
 ### Earnings + withdrawals — Models 2/3
@@ -333,26 +420,35 @@ away.
 
 Request: `POST <your webhookUrl>`, JSON body, headers:
 
-| Header | Value |
-|---|---|
-| `Content-Type` | `application/json` |
-| `X-Laguna-Signature` | `sha256=<hex hmac>` — **only sent if you've configured a webhook secret**; omitted entirely otherwise |
-| `X-Laguna-Partner-Id` | your partner id |
-| `X-Laguna-Event-Type` | `conversion.pending` \| `conversion.confirmed` \| `conversion.reversed` |
-| `X-Laguna-Event-Id` | idempotency key for this delivery attempt |
-| `X-Laguna-Attempt` | attempt number, starting at 1 |
+| Header                | Value                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| `Content-Type`        | `application/json`                                                         |
+| `X-Laguna-Signature`  | `sha256=<hex hmac>` — **only sent if you've configured a webhook secret**; |
+| `X-Laguna-Partner-Id` | your partner id                                                            |
+| `X-Laguna-Event-Type` | `conversion.pending` \| `conversion.confirmed` \| `conversion.reversed`    |
+| `X-Laguna-Event-Id`   | idempotency key for this delivery attempt                                  |
+| `X-Laguna-Attempt`    | attempt number, starting at 1                                              |
 
 Signature: `hex(HMAC_SHA256(secret, raw_json_body))`, compared against the
 `sha256=` prefix — identical scheme to `verifyWebhookSignature()` in the SDK.
 
 Body (`WebhookPayload` — matches the SDK's type):
+
 ```jsonc
 {
-  "event_type": "conversion.confirmed", "partner_user_id": "user_abc123", "merchant_id": "shopee",
-  "transaction_id": "order_xyz", "status": "confirmed",
-  "gross_commission": 10.0, "user_amount": 4.2, "partner_amount": 2.0,
-  "earned_rate_pct": 4.5, "geo_at_purchase": "SG", "settlement_token": "USDC",
-  "conversion_id": "...", "occurred_at": "2026-08-06T00:00:00.000Z"
+  "event_type": "conversion.confirmed",
+  "partner_user_id": "user_abc123",
+  "merchant_id": "shopee",
+  "transaction_id": "order_xyz",
+  "status": "confirmed",
+  "gross_commission": 10.0,
+  "user_amount": 4.2,
+  "partner_amount": 2.0,
+  "earned_rate_pct": 4.5,
+  "geo_at_purchase": "SG",
+  "settlement_token": "USDC",
+  "conversion_id": "...",
+  "occurred_at": "2026-08-06T00:00:00.000Z"
 }
 ```
 
@@ -375,7 +471,12 @@ generic error parser.
 `HttpExceptionFilter`:
 
 ```jsonc
-{ "code": 401, "message": "API key not found or has been revoked", "data": { "statusCode": 401, "message": "...", "error": "Unauthorized" }, "traceId": "..." }
+{
+  "code": 401,
+  "message": "API key not found or has been revoked",
+  "data": { "statusCode": 401, "message": "...", "error": "Unauthorized" },
+  "traceId": "..."
+}
 ```
 
 `code` here is just the HTTP status number. The human-readable reason lives
@@ -395,24 +496,29 @@ codes are in that filter's status map, **all four currently resolve to
 `422`**, not the status you might expect from their name:
 
 ```jsonc
-{ "statusCode": 422, "message": "POST /v1/disburse is only available for partners on model_1_user_wallet.", "code": "WRONG_PAYOUT_MODE", "traceId": "..." }
+{
+  "statusCode": 422,
+  "message": "POST /v1/disburse is only available for partners on model_1_user_wallet.",
+  "code": "WRONG_PAYOUT_MODE",
+  "traceId": "..."
+}
 ```
 
-Here `code` *is* the reliable machine-readable string.
+Here `code` _is_ the reliable machine-readable string.
 
-| HTTP | Envelope | code / identifier | Meaning |
-|---|---|---|---|
-| 401 | #1 | `INVALID_API_KEY_FORMAT` (in `message`) | Bearer token isn't `lg_live_*`/`lg_test_*` and isn't a valid JWT |
-| 401 | #1 | `INVALID_API_KEY` (in `message`) | Key not found or revoked |
-| 401 | #1 | `PARTNER_SUSPENDED` (in `message`) | Partner account suspended |
-| 403 | #1 | `MERCHANT_NOT_SUBSCRIBED` (in `message`) | Not approved for this merchant — `POST /v1/subscriptions` first |
-| 422 | #2 | `code: "WRONG_PAYOUT_MODE"` | e.g. calling `/v1/disburse` on a Model 2/3 partner, or `/v1/withdrawals` on Model 1 |
-| 422 | #2 | `code: "WALLET_REQUIRED"` | Partner has no wallet on file (withdrawals) |
-| 422 | #2 | `code: "CONVERSION_NOT_FOUND"` | `transaction_id` doesn't match a confirmed conversion for this partner |
-| 422 | #2 | `code: "DISBURSEMENT_ALREADY_PROCESSED"` | Retried a `transaction_id` that already completed |
-| 429 | #1 | `rate_limit_exceeded` (in `data.error`) | See [Rate limits](#rate-limits) |
-| 400 | #1 | — | Validation errors (missing/invalid fields), generic `message` |
-| 5xx | — | — | Server error |
+| HTTP | Envelope | code / identifier                        | Meaning                                                                             |
+| ---- | -------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| 401  | #1       | `INVALID_API_KEY_FORMAT` (in `message`)  | Bearer token isn't `lg_live_*`/`lg_test_*` and isn't a valid JWT                    |
+| 401  | #1       | `INVALID_API_KEY` (in `message`)         | Key not found or revoked                                                            |
+| 401  | #1       | `PARTNER_SUSPENDED` (in `message`)       | Partner account suspended                                                           |
+| 403  | #1       | `MERCHANT_NOT_SUBSCRIBED` (in `message`) | Not approved for this merchant — `POST /v1/subscriptions` first                     |
+| 422  | #2       | `code: "WRONG_PAYOUT_MODE"`              | e.g. calling `/v1/disburse` on a Model 2/3 partner, or `/v1/withdrawals` on Model 1 |
+| 422  | #2       | `code: "WALLET_REQUIRED"`                | Partner has no wallet on file (withdrawals)                                         |
+| 422  | #2       | `code: "CONVERSION_NOT_FOUND"`           | `transaction_id` doesn't match a confirmed conversion for this partner              |
+| 422  | #2       | `code: "DISBURSEMENT_ALREADY_PROCESSED"` | Retried a `transaction_id` that already completed                                   |
+| 429  | #1       | `rate_limit_exceeded` (in `data.error`)  | See [Rate limits](#rate-limits)                                                     |
+| 400  | #1       | —                                        | Validation errors (missing/invalid fields), generic `message`                       |
+| 5xx  | —        | —                                        | Server error                                                                        |
 
 The SDK doesn't depend on any of this, for what it's worth — `client.ts`
 picks its typed error class off the HTTP status code alone and reads
@@ -432,9 +538,12 @@ partner per UTC day. On breach:
   "code": 429,
   "message": "Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.",
   "data": {
-    "statusCode": 429, "error": "rate_limit_exceeded",
+    "statusCode": 429,
+    "error": "rate_limit_exceeded",
     "message": "Daily partner_mint_link limit exceeded (100000/day). Resets at midnight UTC.",
-    "limit": 100000, "window": "1d", "retryAfter": 3421
+    "limit": 100000,
+    "window": "1d",
+    "retryAfter": 3421
   },
   "traceId": "..."
 }
