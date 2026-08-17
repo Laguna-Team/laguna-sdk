@@ -7,7 +7,7 @@
 // ---------- Common ----------
 
 export type SubscriptionStatus = 'pending' | 'approved' | 'rejected' | 'revoked'
-export type WebhookEventType = 'conversion.confirmed' | 'conversion.reversed'
+export type WebhookEventType = 'conversion.confirmed' | 'conversion.reversed' | 'conversion.paid'
 export type DisbursementStatus = 'processing' | 'completed' | 'failed'
 
 // ---------- Catalog ----------
@@ -153,7 +153,7 @@ export interface WebhookPayload {
   partner_user_id: string
   merchant_id: string
   transaction_id: string
-  status: 'confirmed' | 'reversed'
+  status: 'confirmed' | 'reversed' | 'paid'
   /** Raw commission from the affiliate network. */
   gross_commission: number
   /** Amount the user should receive. */
