@@ -406,17 +406,42 @@ both added server-side on 2026-07-15 — after the SDK's last release
 
 ## Webhooks
 
-Fired to `partner.webhookUrl` on conversion state changes:
-`conversion.pending` (on click→order postback) → `conversion.confirmed` or
-`conversion.reversed`. `conversion.pending` fires for every partner
-conversion, not only sandbox test ones — it isn't a rare case to special-case
-away.
+Fired to `partner.webhookUrl` as a conversion moves through its lifecycle. No
+`webhookUrl` configured → nothing is sent at all (settlement still happens).
+The event name is always `conversion.<status>`, and `status` in the body
+repeats the same value.
 
-> `conversion.pending` was added to the event set on 2026-06-24, two months
-> after the SDK's last release. Its `WebhookEventType` union still only has
-> `'conversion.confirmed' | 'conversion.reversed'` — handle the string
-> `'conversion.pending'` at runtime even though the SDK's types don't know
-> about it yet.
+| Event | When it fires |
+| ----- | ------------- |
+| `conversion.pending` | The network posted back an order against one of your clicks. Fires for **every** partner conversion, live and sandbox alike — not a rare case to special-case away. |
+| `conversion.confirmed` | The network confirmed the commission. This is the point balances move and the conversion becomes disbursable. |
+| `conversion.reversed` | The order was cancelled, returned or rejected after the fact. Can arrive weeks after `confirmed`. |
+| `conversion.paid` | The payout for this conversion settled **on-chain**. Fired by the disburse worker after the transfer confirms, not when you call `POST /v1/disburse`. |
+| `conversion.rejected` | Declared in the event union but never emitted by the normal flow — it is only reachable through an internal ops replay. Accept it defensively; don't build on it. |
+
+> **`conversion.paid` gates the conversion's terminal state.** A conversion
+> reaches `success` internally only once both legs are done: the on-chain
+> transfer settled **and** its `conversion.paid` webhook reached a terminal
+> delivery state (`delivered`, or `dead_letter` after the retries are
+> exhausted). Partners with no `webhookUrl` have no second leg to wait on. So
+> an endpoint that black-holes `conversion.paid` — accepting it but never
+> returning 2xx — holds the conversion short of `success` until the retry
+> schedule runs out. It costs nobody money, but it will skew your reconciliation
+> against Laguna's dashboards.
+
+> **SDK type drift.** The published package (0.1.2, 2026-04-23) predates three
+> of these events. `conversion.paid` was added to `WebhookEventType` on `main`
+> on 2026-08-17 but has not shipped in a release yet; `conversion.pending`
+> (added server-side 2026-06-24) and `conversion.rejected` are still missing
+> from the union entirely. Until a release catches up, don't `switch` on the
+> SDK's type — widen it yourself, and handle the raw strings at runtime:
+>
+> ```ts
+> type LagunaEventType = WebhookEventType | 'conversion.pending' | 'conversion.rejected'
+> ```
+>
+> Nothing else is affected: `verifyWebhookSignature()` and the rest of
+> `WebhookPayload` are unchanged across all five events.
 
 Request: `POST <your webhookUrl>`, JSON body, headers:
 
@@ -425,7 +450,7 @@ Request: `POST <your webhookUrl>`, JSON body, headers:
 | `Content-Type`        | `application/json`                                                         |
 | `X-Laguna-Signature`  | `sha256=<hex hmac>` — **only sent if you've configured a webhook secret**; |
 | `X-Laguna-Partner-Id` | your partner id                                                            |
-| `X-Laguna-Event-Type` | `conversion.pending` \| `conversion.confirmed` \| `conversion.reversed`    |
+| `X-Laguna-Event-Type` | the `conversion.*` event name — same value as `event_type` in the body     |
 | `X-Laguna-Event-Id`   | idempotency key for this delivery attempt                                  |
 | `X-Laguna-Attempt`    | attempt number, starting at 1                                              |
 
@@ -561,3 +586,113 @@ partner per UTC day. On breach:
 3600s) — cache rates for that long server-side rather than calling on every
 end-user page view. `GET /v1/catalog` has no `cache_ttl`; it's meant for
 integration-time discovery, not a hot path.
+
+## Glossary
+
+Terms and field names used above, in the order you'd meet them integrating.
+Where a field is computed, the formula is the one the server actually runs —
+useful when your numbers don't match ours.
+
+### Identity and scope
+
+| Term | Meaning |
+| ---- | ------- |
+| **Partner** | You: the B2B integrator embedding Laguna cashback (wallet, card app, super-app). Everything on this API is scoped to one partner. |
+| **API key** (`lg_live_*` / `lg_test_*`) | Server-to-server credential. The prefix picks the environment *and* the mode — a `lg_test_*` key produces sandbox data only. |
+| **Sandbox** (`isSandbox`) | Test/live flag, inherited down the chain link → click → conversion from the key that minted the link. Sandbox rows never credit live balances and never pay out. |
+| **Simulated** (`isSimulated`) | Narrower than sandbox: the row was *fabricated* by `POST /v1/test/conversions` (or admin simulate) rather than coming from a real network postback. Sandbox conversions from real clicks are `isSandbox=true, isSimulated=false`. |
+| **`partner_user_id`** | An opaque id for *your* end user, chosen by you. Laguna stores it verbatim and echoes it back on links, conversions and webhooks; it's the join key for your own ledger. Under JWT auth it's derived from the session wallet and cannot be sent. |
+| **Subscription** | Per-merchant permission to mint links and see rates. `pending` (awaiting Laguna admin review) → `approved` / `rejected`; `revoked` is the terminal state after you `DELETE` one. Only `approved` unlocks anything. |
+| **`traceId`** | Per-request id on every error envelope. Quote it in support tickets — it's how Laguna finds the request in logs. |
+
+### Merchants and rates
+
+| Term | Meaning |
+| ---- | ------- |
+| **Canonical merchant** (`merchant_id`) | One retailer, e.g. `"shopee"`. Stable, human-readable, and the id you use everywhere. One merchant may be reachable through several affiliate networks. |
+| **Route** | One (merchant, network, program, geo) path Laguna can send traffic down, with its own rate, `cookie_days` and `payout_days`. A merchant usually has several; the API picks the best one for the requested `geo`. |
+| **Gross rate** | The commission the affiliate network pays Laguna. Never exposed on this API. |
+| **Net rate** | Gross minus Laguna's spread — what's left to split between you and your user. **Every rate in every response is net.** |
+| **`best_rate`** | The highest *net* rate among the routes matching your `geo`, in percent. `0` when no route is active (then `available` is `false`). |
+| **`headline_rate`** | Same number as `best_rate`, under the name used on the lighter `GET /v1/catalog` rows. |
+| **`rate_note`** | A **display string**, generated server-side, not a field to parse. Two forms: `"Up to {best_rate}%. Actual rate depends on product category."` when routes exist, or `"No active cashback routes available for this merchant."` when none do. Show it under the headline rate so users understand `best_rate` is a ceiling, not a promise. |
+| **`category_rates[]`** | Per-sub-category net rates for the best route (`{ sub_category, rate }`). The network quotes these gross, so each is scaled by the best route's net/gross ratio before you see it. Present only for merchants whose network publishes category breakdowns — an empty array means "one flat rate", not "no cashback". |
+| **`available`** | `true` when at least one active route matched the requested `geo`. `false` means the merchant exists but earns nothing there right now — hide it or grey it out rather than showing `0%`. |
+| **`supported_geos`** | Geos aggregated across **all** the merchant's routes, not just the one you asked for. Mixed alpha-2/alpha-3 (see [Geo codes](#geo-codes)) — display or round-trip it, don't match on it. |
+| **`cookie_days`** | Attribution window: how long after the click a purchase still counts. Taken from the best route. |
+| **`payout_days`** | How long the network takes to confirm and pay the commission — the floor on how long a conversion sits `pending`. Typically 30–60 days. |
+| **`cache_ttl`** | Seconds this rate payload stays valid (currently 3600). Cache server-side for that long instead of calling per page view. |
+| **`trackTime` / `withdrawableTime`** | Compat-block aliases (second block of `MerchantDetail`) for `cookie_days` / `payout_days`, falling back to them when the merchant has no main-app override. |
+| **`rateCashbackMax` / `rateCashbackMin`** | Compat-block highest/lowest `category_rates[].rate`; both collapse to `best_rate` when there are no category rates. |
+
+### Links and clicks
+
+| Term | Meaning |
+| ---- | ------- |
+| **Shortlink / `shortcode`** | The minted `https://go.laguna.network/r/<shortcode>` URL and its 8-char code. Send your user to the shortlink; Laguna records the click and forwards to the merchant. |
+| **`target_url`** | Optional deep link into a specific product page. Honoured only on routes with deep-link support; otherwise the user lands on the merchant home page. |
+| **Click / `clickId`** | One recorded visit through a shortlink, stamped with geo and the route snapshot. Partner clicks carry a `ptr_*` clickId that is preserved end-to-end — it's the subId the network posts back, and it's what ties a conversion to your user. |
+| **Geo pinning** | Partner links resolve their route at **mint** time from the required `geo` and never re-resolve at click time. That's what keeps first-click attribution intact; it's also why `geo` is mandatory. |
+
+### Money
+
+For a conversion, the network reports `gross_commission`; Laguna splits it
+three ways by the percentages on your partner record:
+
+```
+user_amount    = gross_commission × (1 − lagunaSharePct/100 − partnerSharePct/100)
+partner_amount = gross_commission × (partnerSharePct/100)
+```
+
+| Term | Meaning |
+| ---- | ------- |
+| **Conversion** | A purchase the network attributed to one of your links. `transaction_id` on the API is the network's order id for it. |
+| **`gross_commission`** | Raw commission from the affiliate network, before any split. |
+| **`user_amount`** | Your end user's cashback — the remainder after Laguna's and your shares. |
+| **`partner_amount`** | Your margin on the conversion. |
+| **`earned_rate_pct`** | The rate actually applied, back-computed as `netCommission / order_value × 100` — so it reflects what the basket really earned, not the merchant's headline rate. |
+| **`geo_at_purchase`** | Geo detected at click time, `null` if undetectable. |
+| **`settlement_token`** / **`payout_token`** | The token amounts are denominated in (default `USDC`). Two names for the same partner-level setting: `settlement_token` on earnings/webhooks, `payout_token` on withdrawals, where it's snapshotted at request time. Amounts are **never** token-suffixed, so always read this field rather than assuming USDC. |
+| **`pending`** (earnings) | Commission from conversions the network hasn't confirmed yet. Can still be reversed — don't show it as spendable. |
+| **`available`** (earnings) | Confirmed and withdrawable now. |
+| **`total_earned` / `total_withdrawn` / `total_disbursed`** | Lifetime counters. `total_disbursed` is Model 1 only: amounts sent straight to user wallets, which never pass through your balance. |
+| **`withdrawable_code`** | Short unique reference for one disbursement/withdrawal. Laguna support looks payouts up by it — store it with your own record. |
+
+### Payout modes
+
+Set per partner; `payoutMode` decides which endpoints work for you.
+
+| Mode | Who gets paid | Endpoint |
+| ---- | ------------- | -------- |
+| `model_1_user_wallet` | Laguna pays each end user's wallet directly, per conversion. | `POST /v1/disburse` (`/v1/withdrawals` → `422 WRONG_PAYOUT_MODE`) |
+| `model_2_partner_wallet` | Laguna pays your partner wallet; you settle users yourself. | `POST /v1/withdrawals` |
+| `model_3_manual` | Off-platform settlement on an agreed cadence/threshold. | `GET /v1/earnings` for reporting |
+
+**Disbursement** = a single on-chain payout. `processing` → `completed` (with
+`tx_hash`) or `failed`. Idempotent on `transaction_id`: re-posting a completed
+one returns `422 DISBURSEMENT_ALREADY_PROCESSED`, while re-posting one still in
+flight returns the existing record.
+
+### Conversion and delivery lifecycle
+
+| Status | Meaning |
+| ------ | ------- |
+| `pending` | Network reported the order; commission not yet confirmed. Reversible. |
+| `confirmed` | Network confirmed it. Eligible for `POST /v1/disburse`, and the point balances move. |
+| `reversed` | Cancelled, returned or rejected by the merchant/network after the fact. Subtract it — it can happen weeks later. |
+| `paid` | The on-chain payout for this conversion settled. |
+| `success` | Internal terminal state: payout settled **and** the `conversion.paid` webhook reached a terminal delivery state. Not a webhook event — you'll only see it in Laguna's dashboards. |
+| `rejected` | In the status union but never written by the normal flow; reachable only via internal ops replay. Accept defensively, don't build on it. |
+
+Webhook deliveries have their own states: `pending` → `delivered`, or `failed`
+between retries, ending at **`dead_letter`** once the 1m→5m→30m→2h→8h schedule
+is exhausted. `dead_letter` needs manual replay by Laguna ops, so treat a
+missed webhook as a reconciliation problem, not a lost payment — the money is
+unaffected.
+
+| Term | Meaning |
+| ---- | ------- |
+| **`X-Laguna-Event-Id`** | Idempotency key for one delivery attempt. Store it and ignore repeats — retries reuse it. |
+| **`X-Laguna-Attempt`** | Attempt counter starting at 1; `> 1` means you previously failed to return 2xx. |
+| **`occurred_at`** | When the status transition happened, not when the webhook was sent. Retries keep the original value, so order your ledger by this, not by receipt time. |
+| **`conversion_id`** | Laguna's internal id for the conversion. Opaque — for support tickets; reconcile on `transaction_id`. |
